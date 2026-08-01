@@ -74,6 +74,10 @@ _MHS_DTR_RTS_ON: Final = 0x0303
 #: Fixed by the ELDAT specification: 57600 8N1, no flow control.
 BAUDRATE: Final = 57600
 
+#: Bulk packet size, read from the descriptor when available. Confirmed as 64
+#: on the hardware (endpoints 0x01 out and 0x81 in, both wMaxPacketSize 0x40).
+_DEFAULT_PACKET_SIZE: Final = 64
+
 
 class Cp210xError(Exception):
     """Raised when the device cannot be opened or used."""
@@ -195,8 +199,10 @@ class Cp210xDevice:
     def __init__(self, device: usb.core.Device) -> None:
         self._device = device
         self._interface_number = 0
-        self._ep_in = None
-        self._ep_out = None
+        self._ep_in: int | None = None
+        self._ep_out: int | None = None
+        #: Overwritten from the descriptor; every CP210x observed uses 64.
+        self._read_size = _DEFAULT_PACKET_SIZE
         self._open = False
         self._write_lock = threading.Lock()
 
@@ -211,27 +217,8 @@ class Cp210xDevice:
     def open(self) -> None:
         if self._open:
             return
-        try:
-            configuration = self._device.get_active_configuration()
-        except usb.core.USBError as err:
-            raise Cp210xError(f"cannot read configuration: {err}") from err
-
-        interface = configuration[(0, 0)]
-        self._interface_number = interface.bInterfaceNumber
-        self._ep_out = usb.util.find_descriptor(
-            interface,
-            custom_match=lambda ep: (
-                usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_OUT
-            ),
-        )
-        self._ep_in = usb.util.find_descriptor(
-            interface,
-            custom_match=lambda ep: (
-                usb.util.endpoint_direction(ep.bEndpointAddress) == usb.util.ENDPOINT_IN
-            ),
-        )
-        if self._ep_in is None or self._ep_out is None:
-            raise Cp210xError("device does not expose the expected bulk endpoints")
+        self._select_configuration()
+        self._find_endpoints()
 
         try:
             usb.util.claim_interface(self._device, self._interface_number)
@@ -245,6 +232,57 @@ class Cp210xDevice:
         self._open = True
         _LOGGER.info("opened %s at %d baud 8N1", self.description, BAUDRATE)
 
+    def _select_configuration(self) -> None:
+        """Activate the device's single configuration.
+
+        This has to happen before anything reads the configuration descriptor.
+        pyusb otherwise discovers the active configuration by issuing a
+        GET_CONFIGURATION control request, and a USB device passed through to a
+        virtual machine may answer that with ``[Errno 5] Input/Output Error`` --
+        which is exactly what Home Assistant OS on Proxmox did. Setting the
+        configuration explicitly tells pyusb which one is active, so the query
+        never happens.
+        """
+        try:
+            self._device.set_configuration()
+        except (usb.core.USBError, NotImplementedError) as err:
+            # Not fatal on its own: some stacks refuse a redundant
+            # SET_CONFIGURATION when the device is already configured.
+            _LOGGER.debug("set_configuration was refused: %s", err)
+
+    def _find_endpoints(self) -> None:
+        """Locate the bulk endpoints from the cached descriptors.
+
+        Indexing the device reads the descriptor libusb already cached from
+        sysfs, rather than asking the device again.
+        """
+        try:
+            interface = self._device[0][(0, 0)]
+        except (usb.core.USBError, IndexError, ValueError) as err:
+            raise Cp210xError(f"cannot read the interface descriptor: {err}") from err
+
+        self._interface_number = interface.bInterfaceNumber
+        for endpoint in interface:
+            address = endpoint.bEndpointAddress
+            if usb.util.endpoint_direction(address) == usb.util.ENDPOINT_IN:
+                self._ep_in, self._read_size = address, endpoint.wMaxPacketSize
+            else:
+                self._ep_out = address
+
+        if self._ep_in is None or self._ep_out is None:
+            raise Cp210xError(
+                "device does not expose the expected pair of bulk endpoints "
+                f"(interface {self._interface_number}, "
+                f"{interface.bNumEndpoints} endpoints)"
+            )
+        _LOGGER.debug(
+            "interface %d, bulk in 0x%02X, bulk out 0x%02X, %d byte packets",
+            self._interface_number,
+            self._ep_in,
+            self._ep_out,
+            self._read_size,
+        )
+
     def _control(self, request: int, value: int, data: bytes | int = 0) -> None:
         self._device.ctrl_transfer(
             _REQTYPE_HOST_TO_DEVICE, request, value, self._interface_number, data
@@ -255,11 +293,7 @@ class Cp210xDevice:
         if not self._open:
             raise Cp210xError("device is not open")
         try:
-            data = self._device.read(
-                self._ep_in.bEndpointAddress,
-                self._ep_in.wMaxPacketSize,
-                timeout=timeout_ms,
-            )
+            data = self._device.read(self._ep_in, self._read_size, timeout=timeout_ms)
         except usb.core.USBTimeoutError:
             return b""
         except usb.core.USBError as err:
@@ -274,9 +308,7 @@ class Cp210xDevice:
             raise Cp210xError("device is not open")
         with self._write_lock:
             try:
-                self._device.write(
-                    self._ep_out.bEndpointAddress, data, timeout=timeout_ms
-                )
+                self._device.write(self._ep_out, data, timeout=timeout_ms)
             except usb.core.USBError as err:
                 raise Cp210xError(f"write failed: {err}") from err
 

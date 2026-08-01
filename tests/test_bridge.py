@@ -315,3 +315,105 @@ class TestRunScript:
     def test_starts_the_bridge_module(self):
         text = (ADDON / "run.sh").read_text(encoding="utf-8")
         assert "python3 -m bridge" in text
+
+
+class TestOpeningAPassedThroughDevice:
+    """Opening must not depend on control requests the device may refuse.
+
+    On Home Assistant OS running under Proxmox, with the stick passed through by
+    QEMU, pyusb's get_active_configuration() issued a GET_CONFIGURATION request
+    that the emulated device answered with [Errno 5] Input/Output Error. Calling
+    set_configuration() first tells pyusb which configuration is active, so the
+    query never happens, and the descriptors are then read from libusb's cache.
+    """
+
+    class _Endpoint:
+        def __init__(self, address, packet_size=64):
+            self.bEndpointAddress = address
+            self.wMaxPacketSize = packet_size
+
+    class _Interface:
+        bInterfaceNumber = 0
+        bNumEndpoints = 2
+
+        def __init__(self, endpoints):
+            self._endpoints = endpoints
+
+        def __iter__(self):
+            return iter(self._endpoints)
+
+    class _FakeDevice:
+        idVendor = 0x155A
+        idProduct = 0x100E
+
+        def __init__(self, interface, *, get_active_raises=True):
+            self._interface = interface
+            self.set_configuration_calls = 0
+            self.get_active_calls = 0
+            self._get_active_raises = get_active_raises
+
+        def set_configuration(self, configuration=None):
+            self.set_configuration_calls += 1
+
+        def get_active_configuration(self):
+            import usb.core
+
+            self.get_active_calls += 1
+            if self._get_active_raises:
+                raise usb.core.USBError("Input/Output Error", 5)
+            return {(0, 0): self._interface}
+
+        def __getitem__(self, index):
+            return {(0, 0): self._interface}
+
+    def _device(self, **kwargs):
+        # Endpoints as confirmed on the hardware via sysfs: 0x81 in, 0x01 out.
+        interface = self._Interface([self._Endpoint(0x81), self._Endpoint(0x01)])
+        return self._FakeDevice(interface, **kwargs)
+
+    def _stick(self, device):
+        from bridge.cp210x import Cp210xDevice
+
+        return Cp210xDevice(device)
+
+    def test_configuration_is_selected_explicitly(self):
+        device = self._device()
+        stick = self._stick(device)
+        stick._select_configuration()
+        assert device.set_configuration_calls == 1
+
+    def test_endpoints_come_from_the_cached_descriptor(self):
+        """Never via get_active_configuration, which triggers the failing request."""
+        device = self._device()
+        stick = self._stick(device)
+        stick._find_endpoints()
+
+        assert stick._ep_in == 0x81
+        assert stick._ep_out == 0x01
+        assert stick._read_size == 64
+        assert stick._interface_number == 0
+        assert device.get_active_calls == 0
+
+    def test_a_refused_set_configuration_is_not_fatal(self):
+        import usb.core
+
+        device = self._device()
+
+        def refuse(configuration=None):
+            raise usb.core.USBError("already configured")
+
+        device.set_configuration = refuse
+        self._stick(device)._select_configuration()  # must not raise
+
+    def test_missing_endpoints_are_reported_clearly(self):
+        from bridge.cp210x import Cp210xError
+
+        interface = self._Interface([self._Endpoint(0x81)])  # in only
+        device = self._FakeDevice(interface)
+        with pytest.raises(Cp210xError, match="bulk endpoints"):
+            self._stick(device)._find_endpoints()
+
+    def test_packet_size_defaults_before_any_descriptor_is_read(self):
+        from bridge.cp210x import _DEFAULT_PACKET_SIZE
+
+        assert self._stick(self._device())._read_size == _DEFAULT_PACKET_SIZE == 64
