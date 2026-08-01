@@ -3,11 +3,11 @@
 The add-on is the easiest route when Home Assistant runs on bare metal. It cannot
 work when Home Assistant runs in a **virtual machine**, and this is why.
 
-## Why a VM needs this
+## Why a VM might need this
 
-Passing the USB stick into a QEMU guest looks like it works -- the guest
-enumerates the device and the bridge finds it -- but control transfers do not
-survive the emulation. Measured on Proxmox with Home Assistant OS as the guest:
+Passing the USB stick into a QEMU guest can look like it works -- the guest
+enumerates the device and the bridge finds it -- and then every control transfer
+fails. Measured on Proxmox with Home Assistant OS as the guest:
 
 | Control transfer | Hypervisor host | Guest via QEMU passthrough |
 |---|---|---|
@@ -20,8 +20,20 @@ resets, so neither the stick nor the cabling is at fault. Bulk endpoints are fou
 and the interface can even be claimed inside the guest -- it is specifically the
 control transfers that fail.
 
-The fix is to run the bridge where USB actually works and let the integration
-reach it over TCP, which is what its host and port settings are for.
+**This is not a general property of USB passthrough.** On the same host and guest,
+an eQ-3 HmIP-RFUSB works -- also vendor-specific class, also two endpoints, also
+full speed. The one difference found was position: the HmIP sat one hub deep, the
+ELDAT stick two.
+
+```text
+3-2.2      HmIP-RFUSB    root -> hub -> device            works
+3-2.4.1    ELDAT stick   root -> hub -> hub -> device     control transfers fail
+```
+
+**So try a port that is not behind a second hub before reaching for this.** If the
+transfers still fail, running the bridge where USB does work and reaching it over
+TCP is a dependable way around it, which is what the integration's host and port
+settings are for.
 
 ## An LXC container on Proxmox
 

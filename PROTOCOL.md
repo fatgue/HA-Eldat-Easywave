@@ -241,11 +241,11 @@ kernel path unavailable, driving the CP210x from userspace
 The same held in a Debian LXC container. So the userspace driver is not a
 fallback in practice -- it is the path that runs.
 
-### QEMU USB passthrough does not work
+### Control transfers failed behind QEMU, and it is not clear why
 
-Passing the stick into a virtual machine gets far enough to be misleading: the
-guest enumerates it, the bridge finds it, the bulk endpoints are read and the
-interface can be claimed. Then every control transfer fails.
+Passing the stick into a virtual machine got far enough to be misleading: the
+guest enumerated it, the bridge found it, the bulk endpoints were read and the
+interface was claimed. Then every control transfer failed.
 
 | Control transfer | Hypervisor host | Guest via QEMU |
 |---|---|---|
@@ -253,12 +253,27 @@ interface can be claimed. Then every control transfer fails.
 | `GET_CONFIGURATION` | fine | `[Errno 5] Input/Output Error` |
 | CP210x vendor requests | fine | `[Errno 5] Input/Output Error` |
 
-The host's kernel log showed a clean enumeration with no link errors and no
-repeated resets, so the device and cabling are sound. Run the bridge outside the
-VM -- an LXC container bind-mounts the real device node and works. A readable
-serial number in the log is the quick signal that control transfers are getting
-through.
+**The obvious conclusion -- that QEMU cannot carry these transfers -- does not
+survive contact with a counterexample.** On the same host, the same hypervisor and
+the same guest, an eQ-3 HmIP-RFUSB works: it is also `bInterfaceClass 255`, also
+two endpoints, also full speed. Whatever went wrong is more specific than "USB
+passthrough".
 
+The one systematic difference found so far is where the two sticks sit:
+
+```text
+3-2.2      HmIP-RFUSB    root -> hub -> device            works
+3-2.4.1    ELDAT stick   root -> hub -> hub -> device     control transfers fail
+```
+
+So a cascaded second hub is the leading suspect, not the emulation. The host
+handled the device through the same hubs without trouble, but the host is not
+funnelling every transfer through usbfs and an emulated controller.
+
+**This is unresolved.** The honest summary is that the stick did not work in this
+particular VM in this particular topology, and that running the bridge outside the
+VM is a reliable way around it -- not that virtual machines cannot work. Anyone
+hitting this should first try a port that is not behind a second hub.
 ## One speaker only
 
 The stick tolerates a single connection, and the protocol is strictly

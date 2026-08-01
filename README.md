@@ -13,7 +13,7 @@ Two situations need more than that:
 | Situation | What to do |
 |---|---|
 | Stick plugged into the Home Assistant machine | Just the HACS integration |
-| Home Assistant in a **virtual machine** | Run the [bridge outside the VM](deploy/README.md) and point the integration at it |
+| Home Assistant in a virtual machine | Usually just the integration; if control transfers fail, run the [bridge outside the VM](deploy/README.md) |
 | Stick attached to a different machine | Same: run the bridge there |
 
 ## How it drives the stick
@@ -30,10 +30,14 @@ container privileged, and grants it the USB device cgroup rules. So the
 integration drives the chip through Linux usbfs ioctls directly, using nothing but
 the standard library. No add-on, no dependencies.
 
-> **In a virtual machine this cannot work**, however the software is packaged.
-> QEMU USB passthrough does not carry the CP210x control transfers — verified on
-> Proxmox, where the hypervisor host handles every transfer the guest fails. The
-> bridge has to run outside the VM: see [deploy/README.md](deploy/README.md).
+> **If Home Assistant runs in a virtual machine**, the stick has to be passed
+> through to the guest, and that can go wrong: on a Proxmox guest every control
+> transfer failed with `[Errno 5]` while the hypervisor host handled all of them.
+> Notably a HmIP-RFUSB — same interface class, same endpoint count, same speed —
+> worked on that very guest, so the cause is narrower than "passthrough". The one
+> difference found was a cascaded second USB hub. Try a port that is not behind a
+> second hub first; if it still fails, run the
+> [bridge outside the VM](deploy/README.md).
 
 See [PROTOCOL.md](PROTOCOL.md) for the measured protocol, including several places
 where the hardware disagrees with ELDAT's published specification.
