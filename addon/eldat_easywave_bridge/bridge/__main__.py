@@ -94,9 +94,34 @@ async def _run() -> int:
     return 0
 
 
+#: Supervisor's log level names, mapped onto Python's.
+_LOG_LEVELS = {
+    "trace": "DEBUG",
+    "debug": "DEBUG",
+    "info": "INFO",
+    "notice": "INFO",
+    "warning": "WARNING",
+    "error": "ERROR",
+    "fatal": "CRITICAL",
+}
+
+
+def _log_level() -> str:
+    """Resolve the log level from the add-on options or the environment.
+
+    Read here rather than mapped in run.sh, because doing it there would mean
+    bashio, and bashio would mean requesting Supervisor API access purely to
+    look up a log level.
+    """
+    raw = str(
+        _load_options().get("log_level") or os.environ.get("ELDAT_LOG_LEVEL") or "info"
+    )
+    return _LOG_LEVELS.get(raw.lower(), raw.upper())
+
+
 def main() -> int:
     logging.basicConfig(
-        level=os.environ.get("ELDAT_LOG_LEVEL", "INFO").upper(),
+        level=_log_level(),
         format="%(asctime)s %(levelname)-8s %(name)s: %(message)s",
     )
     try:

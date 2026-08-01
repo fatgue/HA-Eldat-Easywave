@@ -69,8 +69,10 @@ class TestBackendDiagnosis:
         monkeypatch.setattr("os.path.isdir", lambda path: False)
         message = _diagnose_backend_failure("/usr/lib/libusb-1.0.so.0")
         assert "/dev/bus/usb is missing" in message
-        assert "usb: true" in message
         assert "full_access: true" in message
+        # Virtualised installs need the device passed through to the guest too,
+        # which is exactly the setup this was found on.
+        assert "passed through" in message
 
     def test_library_present_and_usb_present_reports_init_failure(self, monkeypatch):
         monkeypatch.setattr("os.path.isdir", lambda path: True)
@@ -175,3 +177,141 @@ class TestKernelBinding:
         )
         monkeypatch.setattr(kernel, "_bound_tty", lambda: "/dev/ttyUSB0")
         assert kernel.find_tty("00002858", timeout=0) == "/dev/serial/by-id/eldat"
+
+
+class TestSerialNumberIsCosmetic:
+    """Reading the serial must never be able to take the bridge down.
+
+    A USB device passed through to a virtual machine may refuse the language-id
+    request, which pyusb surfaces as ValueError("The device has no langid").
+    That happened on a real Home Assistant OS guest, and because the serial was
+    read for a log line, it crashed the add-on on startup.
+    """
+
+    class _Refusing:
+        idVendor = 0x155A
+        idProduct = 0x100E
+
+        @property
+        def serial_number(self):
+            raise ValueError(
+                "The device has no langid (permission issue, no string "
+                "descriptors supported or device error)"
+            )
+
+    class _Erroring:
+        idVendor = 0x155A
+        idProduct = 0x100E
+
+        @property
+        def serial_number(self):
+            import usb.core
+
+            raise usb.core.USBError("pipe error")
+
+    class _Working:
+        idVendor = 0x155A
+        idProduct = 0x100E
+        serial_number = "00002858"
+
+    def test_langid_failure_yields_none(self):
+        from bridge.cp210x import read_serial_number
+
+        assert read_serial_number(self._Refusing()) is None
+
+    def test_usb_error_yields_none(self):
+        from bridge.cp210x import read_serial_number
+
+        assert read_serial_number(self._Erroring()) is None
+
+    def test_readable_serial_is_returned(self):
+        from bridge.cp210x import read_serial_number
+
+        assert read_serial_number(self._Working()) == "00002858"
+
+    def test_describe_survives_an_unreadable_serial(self):
+        from bridge.cp210x import describe
+
+        text = describe(self._Refusing())
+        assert "155A:100E" in text
+        assert "ELDAT USB Device V1" in text
+        assert "unreadable" in text
+
+    def test_describe_still_reports_a_readable_serial(self):
+        from bridge.cp210x import describe
+
+        assert "00002858" in describe(self._Working())
+
+
+class TestLogLevel:
+    """run.sh is plain sh, so the level has to be resolved in Python.
+
+    Mapping it in run.sh would mean bashio, and bashio talks to the Supervisor
+    API -- which without the hassio_api permission fails on every start with
+    "Unable to access the API, forbidden".
+    """
+
+    @pytest.fixture(autouse=True)
+    def _no_env(self, monkeypatch):
+        monkeypatch.delenv("ELDAT_LOG_LEVEL", raising=False)
+
+    @pytest.mark.parametrize(
+        ("configured", "expected"),
+        [
+            ("trace", "DEBUG"),
+            ("debug", "DEBUG"),
+            ("info", "INFO"),
+            ("notice", "INFO"),
+            ("warning", "WARNING"),
+            ("error", "ERROR"),
+            ("fatal", "CRITICAL"),
+        ],
+    )
+    def test_supervisor_levels_map_onto_python(self, monkeypatch, configured, expected):
+        from bridge import __main__ as entry
+
+        monkeypatch.setattr(entry, "_load_options", lambda: {"log_level": configured})
+        assert entry._log_level() == expected
+
+    def test_default_without_options_or_environment(self, monkeypatch):
+        from bridge import __main__ as entry
+
+        monkeypatch.setattr(entry, "_load_options", lambda: {})
+        assert entry._log_level() == "INFO"
+
+    def test_environment_is_the_fallback(self, monkeypatch):
+        from bridge import __main__ as entry
+
+        monkeypatch.setattr(entry, "_load_options", lambda: {})
+        monkeypatch.setenv("ELDAT_LOG_LEVEL", "debug")
+        assert entry._log_level() == "DEBUG"
+
+    def test_options_win_over_the_environment(self, monkeypatch):
+        from bridge import __main__ as entry
+
+        monkeypatch.setattr(entry, "_load_options", lambda: {"log_level": "error"})
+        monkeypatch.setenv("ELDAT_LOG_LEVEL", "debug")
+        assert entry._log_level() == "ERROR"
+
+    def test_unknown_level_is_passed_through_uppercased(self, monkeypatch):
+        from bridge import __main__ as entry
+
+        monkeypatch.setattr(entry, "_load_options", lambda: {"log_level": "critical"})
+        assert entry._log_level() == "CRITICAL"
+
+
+class TestRunScript:
+    def test_does_not_invoke_bashio(self):
+        """It would need Supervisor API access the add-on does not request.
+
+        Checks for actual use -- the shebang and ``bashio::`` calls -- rather than
+        the mere word, which the script mentions to explain its own absence.
+        """
+        text = (ADDON / "run.sh").read_text(encoding="utf-8")
+        assert text.startswith("#!/bin/sh")
+        assert "bashio::" not in text
+        assert "env bashio" not in text
+
+    def test_starts_the_bridge_module(self):
+        text = (ADDON / "run.sh").read_text(encoding="utf-8")
+        assert "python3 -m bridge" in text

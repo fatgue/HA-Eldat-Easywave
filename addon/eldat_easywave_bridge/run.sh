@@ -1,20 +1,12 @@
-#!/usr/bin/env bashio
-# shellcheck shell=bash
+#!/bin/sh
+# Deliberately plain sh, not bashio.
+#
+# bashio reads the add-on configuration through the Supervisor API, which needs
+# the `hassio_api` permission -- and without it every start logs "Unable to
+# access the API, forbidden". The bridge already reads /data/options.json
+# directly, so asking for API access just to fetch a log level would be a
+# permission granted for nothing.
 set -e
-
-# The bridge reads /data/options.json itself, so only the log level is mapped
-# here -- bashio gives us the add-on's configured level in Supervisor terms.
-declare log_level
-log_level="$(bashio::config 'log_level' 'info')"
-
-case "${log_level}" in
-    trace|debug) export ELDAT_LOG_LEVEL="DEBUG" ;;
-    warning)     export ELDAT_LOG_LEVEL="WARNING" ;;
-    error)       export ELDAT_LOG_LEVEL="ERROR" ;;
-    *)           export ELDAT_LOG_LEVEL="INFO" ;;
-esac
-
-bashio::log.info "Starting the ELDAT Easywave bridge..."
 
 cd /app
 exec python3 -m bridge

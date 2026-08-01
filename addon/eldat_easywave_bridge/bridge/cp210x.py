@@ -140,9 +140,10 @@ def _diagnose_backend_failure(found: str | None) -> str:
     if not os.path.isdir("/dev/bus/usb"):
         return (
             f"libusb loaded from {found} but cannot reach the USB subsystem: "
-            "/dev/bus/usb is missing. A Home Assistant add-on needs 'usb: true' "
-            "and 'full_access: true' for that, and the transceiver has to be "
-            "plugged into the host."
+            "/dev/bus/usb is missing. A Home Assistant add-on needs "
+            "'full_access: true' (or at least 'usb: true') for that, and the "
+            "transceiver has to be plugged into the host -- on a virtualised "
+            "install, passed through to the guest as well."
         )
     return (
         f"libusb loaded from {found} but libusb_init() failed. Check that this "
@@ -158,9 +159,28 @@ def find_devices(
     return [device for device in found if device.idProduct in product_ids]
 
 
+def read_serial_number(device: usb.core.Device) -> str | None:
+    """The stick's USB serial, or ``None`` if it cannot be read.
+
+    Reading it means fetching a string descriptor, which is a separate control
+    transfer from anything the bridge actually needs -- and one that fails on
+    some setups. A USB device passed through to a virtual machine, for instance,
+    may not answer the language-id request at all, which pyusb reports by raising
+    ``ValueError("The device has no langid")``.
+
+    So this is strictly cosmetic information, and must never be allowed to take
+    the bridge down with it.
+    """
+    try:
+        return device.serial_number
+    except (ValueError, usb.core.USBError, NotImplementedError) as err:
+        _LOGGER.debug("cannot read the serial number: %s", err)
+        return None
+
+
 def describe(device: usb.core.Device) -> str:
     name = ELDAT_PRODUCT_NAMES.get(device.idProduct, "unknown ELDAT device")
-    serial = device.serial_number or "?"
+    serial = read_serial_number(device) or "unreadable"
     return f"{device.idVendor:04X}:{device.idProduct:04X} {name} (serial {serial})"
 
 
@@ -186,7 +206,7 @@ class Cp210xDevice:
 
     @property
     def serial_number(self) -> str | None:
-        return self._device.serial_number
+        return read_serial_number(self._device)
 
     def open(self) -> None:
         if self._open:

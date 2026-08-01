@@ -34,6 +34,7 @@ from .cp210x import (
     Cp210xError,
     describe,
     find_devices,
+    read_serial_number,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -133,7 +134,9 @@ def _try_kernel(device) -> TtyDevice | None:
     """Bind the id and open the resulting tty, or give up quietly."""
     if not kernel.bind(device.idVendor, device.idProduct):
         return None
-    path = kernel.find_tty(device.serial_number)
+    # Reading the serial can fail on a passed-through device; matching by it
+    # is only a refinement, so fall back to whatever cp210x bound.
+    path = kernel.find_tty(read_serial_number(device))
     if path is None:
         _LOGGER.info("cp210x accepted the id but no tty appeared")
         return None
