@@ -222,12 +222,34 @@ class Cp210xDevice:
 
         try:
             usb.util.claim_interface(self._device, self._interface_number)
-            self._control(_IFC_ENABLE, _UART_ENABLE)
-            self._control(_SET_BAUDRATE, 0, struct.pack("<I", BAUDRATE))
-            self._control(_SET_LINE_CTL, _LINE_CTL_8N1)
-            self._control(_SET_MHS, _MHS_DTR_RTS_ON)
         except usb.core.USBError as err:
-            raise Cp210xError(f"cannot initialise UART: {err}") from err
+            raise Cp210xError(
+                f"cannot claim interface {self._interface_number}: {err}. "
+                "Something else may be holding the device."
+            ) from err
+        _LOGGER.debug("claimed interface %d", self._interface_number)
+
+        # Named individually so a failure says which register the device
+        # rejected. Every one of these is a vendor control request, and those
+        # are precisely what an unreliable USB path drops first.
+        for label, request, value, data in (
+            ("IFC_ENABLE", _IFC_ENABLE, _UART_ENABLE, 0),
+            ("SET_BAUDRATE", _SET_BAUDRATE, 0, struct.pack("<I", BAUDRATE)),
+            ("SET_LINE_CTL", _SET_LINE_CTL, _LINE_CTL_8N1, 0),
+            ("SET_MHS", _SET_MHS, _MHS_DTR_RTS_ON, 0),
+        ):
+            try:
+                self._control(request, value, data)
+            except usb.core.USBError as err:
+                raise Cp210xError(
+                    f"the {label} vendor request (0x{request:02X}) failed: {err}. "
+                    "The interface was claimed, so the device is reachable but "
+                    "will not accept vendor control transfers. On a virtualised "
+                    "Home Assistant this is usually the USB passthrough: run the "
+                    "bridge on the host that the stick is physically attached to "
+                    "and point the integration at it over TCP instead."
+                ) from err
+            _LOGGER.debug("%s accepted", label)
 
         self._open = True
         _LOGGER.info("opened %s at %d baud 8N1", self.description, BAUDRATE)

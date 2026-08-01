@@ -417,3 +417,88 @@ class TestOpeningAPassedThroughDevice:
         from bridge.cp210x import _DEFAULT_PACKET_SIZE
 
         assert self._stick(self._device())._read_size == _DEFAULT_PACKET_SIZE == 64
+
+
+class TestUartInitDiagnostics:
+    """A failing vendor request has to say which one, and what to do.
+
+    Three separate control transfers failed over a QEMU USB passthrough -- the
+    string descriptor, GET_CONFIGURATION, and finally the CP210x vendor requests.
+    At that point the useful message is not "Errno 5" but "move the bridge to the
+    host the stick is attached to".
+    """
+
+    def _stick_that_fails_at(self, failing_request):
+        import usb.core
+        from bridge.cp210x import Cp210xDevice
+
+        class _Device:
+            idVendor = 0x155A
+            idProduct = 0x100E
+
+            def set_configuration(self, configuration=None):
+                pass
+
+            def __getitem__(self, index):
+                class _Endpoint:
+                    def __init__(self, address):
+                        self.bEndpointAddress = address
+                        self.wMaxPacketSize = 64
+
+                class _Interface:
+                    bInterfaceNumber = 0
+                    bNumEndpoints = 2
+
+                    def __iter__(self):
+                        return iter([_Endpoint(0x81), _Endpoint(0x01)])
+
+                return {(0, 0): _Interface()}
+
+            def ctrl_transfer(self, request_type, request, value, index, data):
+                if request == failing_request:
+                    raise usb.core.USBError("Input/Output Error", 5)
+
+        return Cp210xDevice(_Device())
+
+    @pytest.mark.parametrize(
+        ("request_id", "label"),
+        [
+            (0x00, "IFC_ENABLE"),
+            (0x1E, "SET_BAUDRATE"),
+            (0x03, "SET_LINE_CTL"),
+            (0x07, "SET_MHS"),
+        ],
+    )
+    def test_names_the_register_that_was_rejected(self, monkeypatch, request_id, label):
+        import usb.util
+        from bridge.cp210x import Cp210xError
+
+        monkeypatch.setattr(usb.util, "claim_interface", lambda *a: None)
+        stick = self._stick_that_fails_at(request_id)
+        with pytest.raises(Cp210xError, match=label):
+            stick.open()
+
+    def test_points_at_the_passthrough_as_the_likely_cause(self, monkeypatch):
+        import usb.util
+        from bridge.cp210x import Cp210xError
+
+        monkeypatch.setattr(usb.util, "claim_interface", lambda *a: None)
+        stick = self._stick_that_fails_at(0x00)
+        with pytest.raises(Cp210xError) as excinfo:
+            stick.open()
+        message = str(excinfo.value)
+        assert "passthrough" in message
+        assert "over TCP" in message
+
+    def test_a_failed_claim_is_reported_separately(self, monkeypatch):
+        import usb.core
+        import usb.util
+        from bridge.cp210x import Cp210xError
+
+        def refuse(*args):
+            raise usb.core.USBError("Input/Output Error", 5)
+
+        monkeypatch.setattr(usb.util, "claim_interface", refuse)
+        stick = self._stick_that_fails_at(None)
+        with pytest.raises(Cp210xError, match="cannot claim interface"):
+            stick.open()
