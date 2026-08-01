@@ -34,9 +34,9 @@ the standard library. No add-on, no dependencies.
 > through to the guest, and that can go wrong: on a Proxmox guest every control
 > transfer failed with `[Errno 5]` while the hypervisor host handled all of them.
 > Notably a HmIP-RFUSB — same interface class, same endpoint count, same speed —
-> worked on that very guest, so the cause is narrower than "passthrough". The one
-> difference found was a cascaded second USB hub. Try a port that is not behind a
-> second hub first; if it still fails, run the
+> worked on that very guest, and the same ELDAT stick at the same port worked from
+> a container on the host. So neither the emulation in general nor the hubs explain
+> it, and the cause is still open. If you hit this, run the
 > [bridge outside the VM](deploy/README.md).
 
 See [PROTOCOL.md](PROTOCOL.md) for the measured protocol, including several places

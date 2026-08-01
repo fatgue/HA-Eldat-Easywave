@@ -20,20 +20,22 @@ resets, so neither the stick nor the cabling is at fault. Bulk endpoints are fou
 and the interface can even be claimed inside the guest -- it is specifically the
 control transfers that fail.
 
-**This is not a general property of USB passthrough.** On the same host and guest,
-an eQ-3 HmIP-RFUSB works -- also vendor-specific class, also two endpoints, also
-full speed. The one difference found was position: the HmIP sat one hub deep, the
-ELDAT stick two.
+**This is not a general property of USB passthrough**, and it is not the hubs
+either:
 
 ```text
-3-2.2      HmIP-RFUSB    root -> hub -> device            works
-3-2.4.1    ELDAT stick   root -> hub -> hub -> device     control transfers fail
+3-2.4.1  via a privileged LXC container   works completely
+3-2.4.1  via QEMU usb-host into a guest   every control transfer fails
+3-2.2    HmIP-RFUSB via QEMU, same guest  works
 ```
 
-**So try a port that is not behind a second hub before reaching for this.** If the
-transfers still fail, running the bridge where USB does work and reaching it over
-TCP is a dependable way around it, which is what the integration's host and port
-settings are for.
+The same stick, at the same port, behind the same hubs, on the same power, works
+from a container on the host. And another vendor-specific full-speed device works
+through the emulation into the same guest. The cause is narrower than either
+explanation, and remains open.
+
+What is dependable is running the bridge where USB does work and reaching it over
+TCP, which is what the integration's host and port settings are for.
 
 ## An LXC container on Proxmox
 

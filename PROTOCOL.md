@@ -259,21 +259,28 @@ the same guest, an eQ-3 HmIP-RFUSB works: it is also `bInterfaceClass 255`, also
 two endpoints, also full speed. Whatever went wrong is more specific than "USB
 passthrough".
 
-The one systematic difference found so far is where the two sticks sit:
+Nor is the physical path at fault. The stick sits two hubs deep, which looked like
+a suspect until the same stick, at the same port, behind the same hubs, on the same
+power, worked completely from a privileged LXC container on that host -- sysfs
+enumeration, all four vendor requests, 57600 8N1 and the full protocol. The hubs
+and the power budget are therefore sufficient.
 
 ```text
-3-2.2      HmIP-RFUSB    root -> hub -> device            works
-3-2.4.1    ELDAT stick   root -> hub -> hub -> device     control transfers fail
+3-2.4.1  via a privileged LXC container   works completely
+3-2.4.1  via QEMU usb-host into a guest   every control transfer fails
+3-2.2    HmIP-RFUSB via QEMU, same guest  works
 ```
 
-So a cascaded second hub is the leading suspect, not the emulation. The host
-handled the device through the same hubs without trouble, but the host is not
-funnelling every transfer through usbfs and an emulated controller.
+So the one variable that changed between working and failing is the emulation
+layer, and it fails for this device while carrying another of the same class. That
+is as far as the evidence goes.
 
-**This is unresolved.** The honest summary is that the stick did not work in this
-particular VM in this particular topology, and that running the bridge outside the
-VM is a reliable way around it -- not that virtual machines cannot work. Anyone
-hitting this should first try a port that is not behind a second hub.
+**This is unresolved.** What is established is narrow: this stick did not work
+through QEMU passthrough into this guest, and it works both directly on the host
+and from a container on it. Running the bridge outside the VM is a dependable way
+around it. Trying a port that is not behind a second hub costs nothing and is worth
+a go, but the container result argues it will not be the difference.
+
 ## One speaker only
 
 The stick tolerates a single connection, and the protocol is strictly
