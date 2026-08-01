@@ -17,10 +17,10 @@ startup: services
 # the integration tries to connect.
 boot: auto
 
-# Raw USB access plus a writable /sys, needed to register the stick's USB id
-# with the running cp210x driver. Without full_access the kernel path is
-# unavailable and only the userspace CP210x driver can work.
-usb: true
+# full_access covers both things the bridge needs: raw USB access under
+# /dev/bus/usb for the userspace CP210x driver, and a writable /sys to register
+# the stick's USB id with the running cp210x driver. It supersedes `usb: true`,
+# which the Supervisor would otherwise report as redundant and ignore.
 full_access: true
 
 ports:

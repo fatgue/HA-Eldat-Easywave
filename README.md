@@ -109,8 +109,10 @@ things up.
 **The integration cannot connect.** Check the add-on is running. The stick accepts
 only one connection at a time, so nothing else may be using it.
 
-**The add-on finds no stick.** Confirm it is plugged in and that the add-on has
-`usb` and `full_access` permissions (both are set by default). Product ids outside
+**The add-on finds no stick.** Confirm it is plugged in and that the add-on still
+has `full_access` (set by default) -- that is what grants both `/dev/bus/usb` and a
+writable `/sys`. On a virtualised Home Assistant the stick also has to be passed
+through to the VM; binding it by USB id rather than by port survives replugging. Product ids outside
 `0x1005`–`0x1013` are not recognised; set the add-on's `product_ids` option to add
 yours.
 
