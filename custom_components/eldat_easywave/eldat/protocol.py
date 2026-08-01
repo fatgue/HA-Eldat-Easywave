@@ -351,6 +351,27 @@ async def connect_tcp(
     return client
 
 
+async def connect_local(
+    device,
+    *,
+    command_timeout: float = DEFAULT_COMMAND_TIMEOUT,
+) -> tuple[EldatClient, object]:
+    """Open a stick attached to this machine, through usbfs.
+
+    Returns the client and the underlying connection; close the connection after
+    the client to release the USB device. Imported lazily so that a Home Assistant
+    instance which only ever talks to a bridge does not pay for the USB layer.
+    """
+    from .usb_transport import open_local_device
+
+    connection = await open_local_device(device)
+    client = EldatClient(
+        connection.reader, connection.writer, command_timeout=command_timeout
+    )
+    client.start()
+    return client, connection
+
+
 __all__ = [
     "EldatClient",
     "EldatCommandError",
@@ -358,5 +379,6 @@ __all__ = [
     "EldatError",
     "EldatTimeoutError",
     "Response",
+    "connect_local",
     "connect_tcp",
 ]

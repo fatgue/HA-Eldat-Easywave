@@ -4,57 +4,54 @@ Control ELDAT Easywave devices — roller shutters, switching actuators, lights 
 and react to Easywave transmitters such as window contacts and wall switches,
 using an ELDAT Easywave USB transceiver.
 
-Two pieces, because the hardware makes it necessary:
+**Plug the stick into the machine running Home Assistant, install the integration
+from HACS, and add it.** The integration finds the transceiver and drives it
+itself, so there is nothing else to install.
 
-| | What it is | How to install |
-|---|---|---|
-| **ELDAT Easywave** | Home Assistant integration: config flow, devices, entities | HACS |
-| **ELDAT Easywave Bridge** | Owns the USB stick and serves it over TCP | Add-on repository, or [on a Linux host](deploy/README.md) |
+Two situations need more than that:
 
-> **Home Assistant in a virtual machine?** The add-on cannot open the stick there.
-> QEMU USB passthrough does not carry the CP210x control transfers -- verified on
-> Proxmox, where the hypervisor host handles every transfer the guest fails. Run
-> the bridge outside the VM instead: see [deploy/README.md](deploy/README.md).
+| Situation | What to do |
+|---|---|
+| Stick plugged into the Home Assistant machine | Just the HACS integration |
+| Home Assistant in a **virtual machine** | Run the [bridge outside the VM](deploy/README.md) and point the integration at it |
+| Stick attached to a different machine | Same: run the bridge there |
 
-## Why an add-on is required
+## How it drives the stick
 
 ELDAT's transceivers are Silicon Labs CP210x chips behind ELDAT's own USB vendor
 id, and the Linux `cp210x` driver recognises exactly one of ELDAT's fifteen
 product ids (`0x155A:0x1006`, the plain RX09). Every other stick — including
-`0x100E`, which this was developed against — gets **no `/dev/ttyUSB*` node**.
+`0x100E`, which this was developed against — gets **no `/dev/ttyUSB*` node**, so
+there is no serial port to open. The Home Assistant container has no libusb
+either, and an integration cannot install system libraries.
 
-On Home Assistant OS there is no supported way to add a udev rule, and the Home
-Assistant container ships no libusb, so the integration cannot solve this itself.
-The add-on can: it runs privileged, registers the USB id with the kernel driver
-when possible, and otherwise drives the CP210x chip directly over libusb. Either
-way it exposes the stick as a plain TCP stream, which keeps the integration free
-of third-party dependencies.
+What it does have is the raw device: Supervisor bind-mounts `/dev`, runs the
+container privileged, and grants it the USB device cgroup rules. So the
+integration drives the chip through Linux usbfs ioctls directly, using nothing but
+the standard library. No add-on, no dependencies.
+
+> **In a virtual machine this cannot work**, however the software is packaged.
+> QEMU USB passthrough does not carry the CP210x control transfers — verified on
+> Proxmox, where the hypervisor host handles every transfer the guest fails. The
+> bridge has to run outside the VM: see [deploy/README.md](deploy/README.md).
 
 See [PROTOCOL.md](PROTOCOL.md) for the measured protocol, including several places
 where the hardware disagrees with ELDAT's published specification.
 
 ## Installation
 
-### 1. The bridge add-on
+1. Plug the transceiver into the machine running Home Assistant.
+2. In HACS, add this repository as a custom repository of type **Integration**,
+   install **ELDAT Easywave**, and restart Home Assistant.
+3. **Settings → Devices & services → Add integration → ELDAT Easywave**.
 
-1. **Settings → Add-ons → Add-on store**, then ⋮ → **Repositories**, and add this
-   repository's URL.
-2. Install **ELDAT Easywave Bridge**, start it, and check the log. It should report
-   the stick it found and which access path it used:
-   ```
-   found 155A:100E ELDAT USB Device V1 (serial 00002858)
-   opened ... at 57600 baud 8N1
-   bridging ... on ('0.0.0.0', 5000)
-   ```
-3. Enable **Start on boot**.
+The stick should be listed for you to pick, labelled with its model, USB ids and
+serial number. The entry title then shows the firmware it reports, for example
+`Easywave RX09 EW+KEELOQ`.
 
-### 2. The integration
-
-1. In HACS, add this repository as a custom repository of type **Integration**,
-   then install **ELDAT Easywave** and restart Home Assistant.
-2. **Settings → Devices & services → Add integration → ELDAT Easywave**.
-3. Accept the suggested address (`172.30.32.1`, port `5000`) unless you changed the
-   add-on's port. The title will show the firmware the stick reports.
+If no stick is attached to this machine, the same dialog asks for a bridge address
+instead. The add-on in this repository serves one on `172.30.32.1:5000`; a bridge
+you run yourself serves one wherever you put it.
 
 ## Adding devices
 

@@ -17,12 +17,14 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.eldat_easywave.const import (
     CONF_ADDRESS,
+    CONF_CONNECTION,
     CONF_HOST,
     CONF_KEY,
     CONF_KEY_STATE_OFF,
     CONF_KEY_STATE_ON,
     CONF_PORT,
     CONF_POSITION,
+    CONNECTION_TCP,
     DOMAIN,
     SERVICE_SEND_TELEGRAM,
     SUBENTRY_BUTTON,
@@ -137,7 +139,11 @@ async def loaded_entry(hass: HomeAssistant, fake_client: FakeClient):
         domain=DOMAIN,
         title="Easywave RX09 EW+KEELOQ",
         unique_id="172.30.32.1:5000",
-        data={CONF_HOST: "172.30.32.1", CONF_PORT: 5000},
+        data={
+            CONF_CONNECTION: CONNECTION_TCP,
+            CONF_HOST: "172.30.32.1",
+            CONF_PORT: 5000,
+        },
         subentries_data=SUBENTRIES,
     )
     entry.add_to_hass(hass)
@@ -352,7 +358,11 @@ class TestConfigFlow:
         assert result["type"] == "create_entry"
         # The firmware name is far more useful than the USB ids.
         assert result["title"] == "Easywave RX09 EW+KEELOQ"
-        assert result["data"] == {CONF_HOST: "172.30.32.1", CONF_PORT: 5000}
+        assert result["data"] == {
+            CONF_CONNECTION: CONNECTION_TCP,
+            CONF_HOST: "172.30.32.1",
+            CONF_PORT: 5000,
+        }
 
     async def test_user_flow_reports_connection_failure(self, hass):
         from custom_components.eldat_easywave.eldat.protocol import EldatConnectionError

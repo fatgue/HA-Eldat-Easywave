@@ -13,7 +13,7 @@ from typing import Any
 from homeassistant.core import HomeAssistant
 
 from . import EldatConfigEntry
-from .const import CONF_HOST, CONF_PORT
+from .const import CONF_CONNECTION, CONNECTION_TCP
 
 
 async def async_get_config_entry_diagnostics(
@@ -24,8 +24,8 @@ async def async_get_config_entry_diagnostics(
 
     return {
         "connection": {
-            "host": entry.data[CONF_HOST],
-            "port": entry.data[CONF_PORT],
+            "type": entry.data.get(CONF_CONNECTION, CONNECTION_TCP),
+            "identity": hub.unique_id,
             "available": hub.available,
         },
         "transceiver": {

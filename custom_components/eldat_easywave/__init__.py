@@ -24,8 +24,6 @@ from .const import (
     ATTR_KEY,
     ATTR_ON,
     ATTR_POSITION,
-    CONF_HOST,
-    CONF_PORT,
     DOMAIN,
     KEYS,
     MANUFACTURER,
@@ -62,12 +60,12 @@ _SET_LED_SCHEMA = vol.Schema({vol.Required(ATTR_ON): cv.boolean})
 
 async def async_setup_entry(hass: HomeAssistant, entry: EldatConfigEntry) -> bool:
     """Connect to the bridge and set up the platforms."""
-    hub = EldatHub(hass, entry.entry_id, entry.data[CONF_HOST], entry.data[CONF_PORT])
+    hub = EldatHub(hass, entry.entry_id, entry.data)
     try:
         await hub.async_setup()
     except EldatError as err:
         raise ConfigEntryNotReady(
-            f"cannot reach the Easywave bridge at {hub.unique_id}: {err}"
+            f"cannot reach the Easywave transceiver ({hub.unique_id}): {err}"
         ) from err
 
     entry.runtime_data = hub

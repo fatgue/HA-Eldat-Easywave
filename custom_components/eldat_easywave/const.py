@@ -9,8 +9,20 @@ DOMAIN: Final = "eldat_easywave"
 MANUFACTURER: Final = "ELDAT"
 
 # --- hub configuration ---
+CONF_CONNECTION: Final = "connection"
 CONF_HOST: Final = "host"
 CONF_PORT: Final = "port"
+CONF_DEVICE: Final = "device"
+CONF_SERIAL: Final = "serial"
+
+#: The stick is attached to the machine running Home Assistant, and the
+#: integration drives it itself through usbfs.
+CONNECTION_LOCAL: Final = "local"
+
+#: The stick is somewhere else, reachable as a TCP stream served by the bridge.
+#: Required when Home Assistant runs in a virtual machine, because QEMU USB
+#: passthrough does not carry the CP210x control transfers.
+CONNECTION_TCP: Final = "tcp"
 
 DEFAULT_PORT: Final = 5000
 

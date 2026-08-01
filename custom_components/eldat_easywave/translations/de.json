@@ -1,21 +1,29 @@
 {
   "config": {
     "step": {
-      "user": {
-        "title": "Mit der Easywave-Bridge verbinden",
-        "description": "Adresse des Add-ons „ELDAT Easywave Bridge“ eintragen. Unter Home Assistant OS erreicht die Standardadresse das Add-on über das Supervisor-Netz, sobald es läuft.",
+      "pick_device": {
+        "title": "Transceiver auswählen",
+        "description": "An diesem Rechner steckt ein ELDAT-Transceiver, Home Assistant kann ihn also direkt ansteuern. Wähle ihn aus, oder verbinde dich mit einer Bridge, wenn der Stick an einem anderen Rechner hängt — was eine Home-Assistant-VM zwingend braucht, weil die USB-Durchleitung die Steuertransfers nicht überträgt.",
+        "data": {
+          "device": "Transceiver"
+        }
+      },
+      "bridge": {
+        "title": "Mit einer Bridge verbinden",
+        "description": "Adresse eintragen, unter der der Transceiver bereitsteht. Das ist das Add-on „ELDAT Easywave Bridge“ oder die Bridge auf dem Rechner, an dem der Stick steckt.",
         "data": {
           "host": "Host",
           "port": "Port"
         },
         "data_description": {
-          "host": "Wo das Bridge-Add-on erreichbar ist.",
-          "port": "Der im Add-on eingestellte Port."
+          "host": "Wo die Bridge erreichbar ist.",
+          "port": "Der Port, auf dem die Bridge lauscht."
         }
       }
     },
     "error": {
-      "cannot_connect": "Kein Easywave-Transceiver hat geantwortet. Prüfe, ob das Bridge-Add-on läuft und ob kein anderes Programm den Stick belegt."
+      "cannot_connect": "Kein Easywave-Transceiver hat geantwortet. Prüfe, ob das Bridge-Add-on läuft und ob kein anderes Programm den Stick belegt.",
+      "cannot_connect_usb": "Der Transceiver steckt, ließ sich aber nicht öffnen. Prüfe, ob Home Assistant auf die USB-Geräteknoten zugreifen darf und ob kein anderes Programm den Stick belegt."
     },
     "abort": {
       "already_configured": "Diese Bridge ist bereits eingerichtet."

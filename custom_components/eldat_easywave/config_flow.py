@@ -30,6 +30,8 @@ from homeassistant.helpers import selector
 
 from .const import (
     CONF_ADDRESS,
+    CONF_CONNECTION,
+    CONF_DEVICE,
     CONF_DEVICE_CLASS,
     CONF_HOST,
     CONF_KEY,
@@ -43,6 +45,9 @@ from .const import (
     CONF_NAME,
     CONF_PORT,
     CONF_POSITION,
+    CONF_SERIAL,
+    CONNECTION_LOCAL,
+    CONNECTION_TCP,
     DEFAULT_HOST,
     DEFAULT_KEY_CLOSE,
     DEFAULT_KEY_OFF,
@@ -61,6 +66,7 @@ from .const import (
     SUBENTRY_SWITCH,
     SUBENTRY_TRANSMITTER,
 )
+from .eldat.hardware import describe_product
 from .eldat.parser import normalise_address
 from .eldat.protocol import EldatError, connect_tcp
 
@@ -100,7 +106,89 @@ class EldatConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    def __init__(self) -> None:
+        self._local_devices: list = []
+
     async def async_step_user(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Prefer a stick attached to this machine, and only ask otherwise.
+
+        Most installations have the transceiver plugged into the machine running
+        Home Assistant, and the integration can drive it directly. Asking for a
+        host and port first would make the common case look harder than it is.
+        """
+        self._local_devices = await _async_find_local(self.hass)
+        if self._local_devices:
+            return await self.async_step_pick_device()
+        return await self.async_step_bridge()
+
+    async def async_step_pick_device(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Choose among the attached sticks, or fall back to a bridge."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            choice = user_input[CONF_DEVICE]
+            if choice == CONNECTION_TCP:
+                return await self.async_step_bridge()
+
+            device = next(
+                (d for d in self._local_devices if _device_key(d) == choice), None
+            )
+            if device is None:
+                errors["base"] = "cannot_connect"
+            else:
+                await self.async_set_unique_id(
+                    f"usb:{device.serial}" if device.serial else f"usb:{choice}"
+                )
+                self._abort_if_unique_id_configured()
+                description = await _async_probe_local(device)
+                if description is None:
+                    errors["base"] = "cannot_connect_usb"
+                else:
+                    return self.async_create_entry(
+                        title=description,
+                        data={
+                            CONF_CONNECTION: CONNECTION_LOCAL,
+                            CONF_DEVICE: _device_key(device),
+                            CONF_SERIAL: device.serial,
+                        },
+                    )
+
+        options = [
+            selector.SelectOptionDict(
+                value=_device_key(device),
+                label=(
+                    f"{describe_product(device.product_id)} "
+                    f"({device.usb_ids}, serial {device.serial or 'unreadable'})"
+                ),
+            )
+            for device in self._local_devices
+        ]
+        options.append(
+            selector.SelectOptionDict(
+                value=CONNECTION_TCP, label="Connect to a bridge over the network"
+            )
+        )
+        return self.async_show_form(
+            step_id="pick_device",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_DEVICE, default=options[0]["value"]): (
+                        selector.SelectSelector(
+                            selector.SelectSelectorConfig(
+                                options=options,
+                                mode=selector.SelectSelectorMode.LIST,
+                            )
+                        )
+                    )
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_bridge(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
@@ -115,11 +203,16 @@ class EldatConfigFlow(ConfigFlow, domain=DOMAIN):
                 errors["base"] = "cannot_connect"
             else:
                 return self.async_create_entry(
-                    title=description, data={CONF_HOST: host, CONF_PORT: port}
+                    title=description,
+                    data={
+                        CONF_CONNECTION: CONNECTION_TCP,
+                        CONF_HOST: host,
+                        CONF_PORT: port,
+                    },
                 )
 
         return self.async_show_form(
-            step_id="user",
+            step_id="bridge",
             data_schema=self.add_suggested_values_to_schema(
                 vol.Schema(
                     {
@@ -146,6 +239,47 @@ class EldatConfigFlow(ConfigFlow, domain=DOMAIN):
             SUBENTRY_CONTACT: ContactSubentryFlow,
             SUBENTRY_TRANSMITTER: TransmitterSubentryFlow,
         }
+
+
+def _device_key(device) -> str:
+    """Identify a device across re-enumeration: serial if it has one, else path."""
+    return device.serial or f"{device.bus:03d}/{device.address:03d}"
+
+
+async def _async_find_local(hass) -> list:
+    """Sticks attached to this machine. Never raises -- absence is normal."""
+    from .eldat.usb_transport import find_local_devices
+    from .eldat.usbfs import UsbfsError
+
+    try:
+        return await hass.async_add_executor_job(find_local_devices)
+    except UsbfsError as err:
+        _LOGGER.debug("local USB is not usable here: %s", err)
+        return []
+
+
+async def _async_probe_local(device) -> str | None:
+    """Open a local stick and read its identity, then let it go."""
+    from .eldat.protocol import connect_local
+
+    try:
+        client, connection = await connect_local(device)
+    except Exception as err:  # usbfs and protocol errors alike
+        _LOGGER.debug("cannot open %s: %s", device.node, err)
+        return None
+    try:
+        identification = await client.identify()
+        info = await client.info()
+    except EldatError as err:
+        _LOGGER.debug("opened %s but got no identification: %s", device.node, err)
+        return None
+    finally:
+        await client.close()
+        await connection.close()
+
+    if info and info.fields:
+        return f"Easywave {info.fields[0]}"
+    return f"Easywave {identification.vendor_id:04X}:{identification.product_id:04X}"
 
 
 async def _async_probe(host: str, port: int) -> str | None:

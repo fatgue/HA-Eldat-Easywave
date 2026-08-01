@@ -11,7 +11,8 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from typing import Any
 
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
@@ -22,6 +23,11 @@ from .const import (
     ATTR_KEY,
     ATTR_REPEATS,
     ATTR_RSSI,
+    CONF_CONNECTION,
+    CONF_HOST,
+    CONF_PORT,
+    CONF_SERIAL,
+    CONNECTION_LOCAL,
     DOMAIN,
     EVENT_TELEGRAM,
 )
@@ -30,6 +36,7 @@ from .eldat.protocol import (
     EldatClient,
     EldatConnectionError,
     EldatError,
+    connect_local,
     connect_tcp,
 )
 from .eldat.telegrams import TelegramEvent
@@ -45,11 +52,12 @@ _POLL_INTERVAL = 1
 class EldatHub:
     """Holds the connection and distributes telegrams."""
 
-    def __init__(self, hass: HomeAssistant, entry_id: str, host: str, port: int) -> None:
+    def __init__(
+        self, hass: HomeAssistant, entry_id: str, config: Mapping[str, Any]
+    ) -> None:
         self.hass = hass
         self.entry_id = entry_id
-        self.host = host
-        self.port = port
+        self.config = config
 
         self.identification: Identification | None = None
         self.info: Info | None = None
@@ -62,6 +70,9 @@ class EldatHub:
         self.seen: dict[str, TelegramEvent] = {}
 
         self._client: EldatClient | None = None
+        #: Only set on the local path: the USB layer that must outlive the client
+        #: and be torn down after it.
+        self._connection: Any | None = None
         self._availability_listeners: list[Callable[[], None]] = []
         self._supervisor: asyncio.Task[None] | None = None
         self._shutdown = False
@@ -78,14 +89,22 @@ class EldatHub:
         return f"{DOMAIN}_{self.entry_id}_telegram"
 
     @property
-    def unique_id(self) -> str:
-        """Identifies the bridge endpoint.
+    def is_local(self) -> bool:
+        return self.config.get(CONF_CONNECTION) == CONNECTION_LOCAL
 
-        The stick's USB serial is not reachable over the protocol -- ``ID?``
-        returns only vendor, product and firmware version -- so the bridge
-        endpoint is what identifies this hub.
+    @property
+    def unique_id(self) -> str:
+        """Stable identity for this transceiver.
+
+        On the local path the USB serial from sysfs identifies the stick itself.
+        Over the network the bridge endpoint is all there is: the protocol offers
+        no way to ask -- ``ID?`` returns vendor, product and firmware version but
+        no serial.
         """
-        return f"{self.host}:{self.port}"
+        if self.is_local:
+            serial = self.config.get(CONF_SERIAL)
+            return f"usb:{serial}" if serial else f"usb:{self.config.get('device')}"
+        return f"{self.config[CONF_HOST]}:{self.config[CONF_PORT]}"
 
     # -- lifecycle ---------------------------------------------------------
 
@@ -97,7 +116,7 @@ class EldatHub:
         )
 
     async def _connect(self) -> None:
-        client = await connect_tcp(self.host, self.port)
+        client, connection = await self._open()
         try:
             self.identification = await client.identify()
             self.info = await client.info()
@@ -108,9 +127,12 @@ class EldatHub:
                 _LOGGER.warning("cannot read the number of transmit positions: %s", err)
         except EldatError:
             await client.close()
+            if connection is not None:
+                await connection.close()
             raise
 
         self._client = client
+        self._connection = connection
         self._remove_client_listener = client.add_listener(self._handle_telegram)
 
         _LOGGER.info(
@@ -131,6 +153,26 @@ class EldatHub:
                 await self._supervisor
         await self._close_client()
 
+    async def _open(self) -> tuple[EldatClient, Any | None]:
+        """Connect however this entry is configured."""
+        if self.is_local:
+            from .eldat.usb_transport import find_local_devices
+
+            serial = self.config.get(CONF_SERIAL)
+            devices = await self.hass.async_add_executor_job(find_local_devices)
+            match = next(
+                (device for device in devices if serial and device.serial == serial),
+                devices[0] if devices else None,
+            )
+            if match is None:
+                raise EldatConnectionError(
+                    "no ELDAT transceiver is attached to this machine"
+                )
+            return await connect_local(match)
+
+        client = await connect_tcp(self.config[CONF_HOST], self.config[CONF_PORT])
+        return client, None
+
     async def _close_client(self) -> None:
         if self._remove_client_listener is not None:
             self._remove_client_listener()
@@ -138,6 +180,10 @@ class EldatHub:
         if self._client is not None:
             await self._client.close()
             self._client = None
+        if self._connection is not None:
+            # After the client, so nothing writes to a closed USB handle.
+            await self._connection.close()
+            self._connection = None
         self._notify_availability()
 
     async def _supervise(self) -> None:

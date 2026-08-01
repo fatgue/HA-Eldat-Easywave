@@ -202,3 +202,40 @@ class TestServicesYaml:
         """Positions are 0-based; the UI must not offer 1 as the minimum."""
         selector = services["send_telegram"]["fields"]["position"]["selector"]
         assert selector["number"]["min"] == 0
+
+
+class TestConfigFlowStepsAreDescribed:
+    """A step without translations renders as a form with blank labels."""
+
+    def _declared_steps(self) -> set[str]:
+        """Steps this flow defines itself.
+
+        Inherited ones -- dhcp, zeroconf, usb and friends -- come from Home
+        Assistant's base class and are translated there, not here.
+        """
+        from custom_components.eldat_easywave.config_flow import EldatConfigFlow
+
+        return {
+            name[len("async_step_") :]
+            for name in vars(EldatConfigFlow)
+            if name.startswith("async_step_")
+        }
+
+    def test_every_step_with_a_form_has_a_translation(self, strings):
+        described = set(strings["config"]["step"])
+        declared = self._declared_steps()
+        # "user" only dispatches to another step, so it shows no form of its own.
+        assert declared - {"user"} == described, (
+            f"declared={sorted(declared)} described={sorted(described)}"
+        )
+
+    def test_every_error_the_flow_can_set_is_described(self, strings):
+        from pathlib import Path
+
+        source = Path("custom_components/eldat_easywave/config_flow.py").read_text(
+            encoding="utf-8"
+        )
+        described = set(strings["config"]["error"])
+        for key in ("cannot_connect", "cannot_connect_usb"):
+            assert f'"{key}"' in source, f"{key} is described but never used"
+            assert key in described

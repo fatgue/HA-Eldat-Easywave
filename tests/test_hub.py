@@ -13,9 +13,23 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.core import HomeAssistant
 
+from custom_components.eldat_easywave.const import (
+    CONF_CONNECTION,
+    CONF_HOST,
+    CONF_PORT,
+    CONF_SERIAL,
+    CONNECTION_LOCAL,
+    CONNECTION_TCP,
+)
 from custom_components.eldat_easywave.eldat.parser import Identification, Info
 from custom_components.eldat_easywave.eldat.protocol import EldatConnectionError
 from custom_components.eldat_easywave.hub import EldatHub
+
+BRIDGE_CONFIG = {
+    CONF_CONNECTION: CONNECTION_TCP,
+    CONF_HOST: "172.30.32.1",
+    CONF_PORT: 5000,
+}
 
 
 class StubClient:
@@ -45,7 +59,7 @@ class StubClient:
 
 @pytest.fixture
 def hub(hass: HomeAssistant) -> EldatHub:
-    return EldatHub(hass, "entry-1", "172.30.32.1", 5000)
+    return EldatHub(hass, "entry-1", BRIDGE_CONFIG)
 
 
 class TestSetup:
@@ -75,8 +89,19 @@ class TestSetup:
             await hub.async_setup()
 
     async def test_unique_id_is_the_bridge_endpoint(self, hub):
-        """The stick's USB serial is not reachable over the protocol."""
+        """Over the network the endpoint is all there is to identify."""
         assert hub.unique_id == "172.30.32.1:5000"
+        assert hub.is_local is False
+
+    async def test_local_hub_is_identified_by_the_usb_serial(self, hass):
+        """A local stick has a stable identity that survives re-addressing."""
+        hub = EldatHub(
+            hass,
+            "entry-2",
+            {CONF_CONNECTION: CONNECTION_LOCAL, CONF_SERIAL: "00002858"},
+        )
+        assert hub.is_local is True
+        assert hub.unique_id == "usb:00002858"
 
 
 class TestSupervision:

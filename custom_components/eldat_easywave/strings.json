@@ -1,21 +1,29 @@
 {
   "config": {
     "step": {
-      "user": {
-        "title": "Connect to the Easywave bridge",
-        "description": "Enter the address of the ELDAT Easywave Bridge add-on. On Home Assistant OS the default address reaches the add-on through the Supervisor network once it is running.",
+      "pick_device": {
+        "title": "Choose the transceiver",
+        "description": "An ELDAT transceiver is attached to this machine, so Home Assistant can drive it directly. Pick it, or connect to a bridge if the stick sits on another machine -- which is what a Home Assistant virtual machine needs, because USB passthrough does not carry the control transfers.",
+        "data": {
+          "device": "Transceiver"
+        }
+      },
+      "bridge": {
+        "title": "Connect to a bridge",
+        "description": "Enter the address serving the transceiver. That is the ELDAT Easywave Bridge add-on, or the bridge running on the machine the stick is plugged into.",
         "data": {
           "host": "Host",
           "port": "Port"
         },
         "data_description": {
-          "host": "Where the bridge add-on is reachable.",
-          "port": "The port configured in the add-on."
+          "host": "Where the bridge is reachable.",
+          "port": "The port the bridge serves on."
         }
       }
     },
     "error": {
-      "cannot_connect": "No Easywave transceiver answered. Check that the bridge add-on is running and that no other program is using the stick."
+      "cannot_connect": "No Easywave transceiver answered. Check that the bridge add-on is running and that no other program is using the stick.",
+      "cannot_connect_usb": "The transceiver is attached but would not open. Check that Home Assistant may access the USB device nodes, and that nothing else is using the stick."
     },
     "abort": {
       "already_configured": "This bridge is already set up."
