@@ -1,3 +1,6 @@
 # Pulls in the matching Home Assistant release, so the integration is tested
 # against the real thing rather than stubs.
 pytest-homeassistant-custom-component==0.13.*
+
+# pyusb: the bridge add-on tests import its USB layer.
+pyusb==1.2.1

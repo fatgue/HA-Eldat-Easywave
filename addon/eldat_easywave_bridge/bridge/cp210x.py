@@ -98,11 +98,13 @@ def _backend():
     Tries, in order: an explicitly configured path, pyusb's own library search,
     then a list of known locations.
     """
+    found: str | None = None
+
     if path := os.environ.get("ELDAT_LIBUSB_PATH"):
-        backend = libusb1.get_backend(find_library=lambda _: path)
-        if backend is None:
-            raise Cp210xError(f"libusb not loadable from {path}")
-        return backend
+        found = path if os.path.exists(path) else None
+        if (backend := libusb1.get_backend(find_library=lambda _: path)) is not None:
+            return backend
+        raise Cp210xError(_diagnose_backend_failure(found))
 
     if (backend := libusb1.get_backend()) is not None:
         return backend
@@ -110,14 +112,41 @@ def _backend():
     for candidate in _LIBUSB_CANDIDATES:
         if not os.path.exists(candidate):
             continue
+        found = candidate
         if (
             backend := libusb1.get_backend(find_library=lambda _, c=candidate: c)
         ) is not None:
             _LOGGER.debug("loaded libusb from %s", candidate)
             return backend
 
-    raise Cp210xError(
-        "libusb not available -- install it, or point ELDAT_LIBUSB_PATH at it"
+    raise Cp210xError(_diagnose_backend_failure(found))
+
+
+def _diagnose_backend_failure(found: str | None) -> str:
+    """Explain *why* no backend could be built.
+
+    pyusb collapses two very different problems into a ``None`` backend: the
+    library being absent, and the library loading fine but ``libusb_init()``
+    failing afterwards. The second happens whenever the process cannot reach the
+    USB subsystem at all -- for an add-on, that means it was not granted USB
+    access. Reporting that as "libusb not available" sends people off to install
+    a library that is already there.
+    """
+    if found is None:
+        return (
+            "libusb is not installed, or sits somewhere unexpected -- "
+            "point ELDAT_LIBUSB_PATH at it"
+        )
+    if not os.path.isdir("/dev/bus/usb"):
+        return (
+            f"libusb loaded from {found} but cannot reach the USB subsystem: "
+            "/dev/bus/usb is missing. A Home Assistant add-on needs 'usb: true' "
+            "and 'full_access: true' for that, and the transceiver has to be "
+            "plugged into the host."
+        )
+    return (
+        f"libusb loaded from {found} but libusb_init() failed. Check that this "
+        "process is allowed to access /dev/bus/usb."
     )
 
 

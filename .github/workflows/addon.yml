@@ -37,12 +37,17 @@ jobs:
           build-args: |
             BUILD_FROM=ghcr.io/home-assistant/amd64-base:3.21
 
-      - name: Check the bridge starts
+      - name: Check the bridge starts and fails cleanly
         run: |
-          # No USB device in CI, so "no transceiver found" is the expected
-          # outcome. Reaching that message still exercises the imports, the
+          # A CI container has no /dev/bus/usb, so libusb_init() cannot succeed.
+          # The point is that this is reported as a clear, actionable message
+          # rather than a traceback -- reaching it exercises the imports, the
           # libusb load and the option parsing.
           output=$(docker run --rm eldat-easywave-bridge:ci python3 -m bridge 2>&1 || true)
           echo "${output}"
-          echo "${output}" | grep -q "no ELDAT transceiver found" \
+          if echo "${output}" | grep -q "Traceback"; then
+            echo "::error::the bridge crashed instead of reporting an error"
+            exit 1
+          fi
+          echo "${output}" | grep -qE "cannot reach the USB subsystem|no ELDAT transceiver found" \
             || { echo "::error::unexpected startup output"; exit 1; }
