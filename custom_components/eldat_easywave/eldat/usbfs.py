@@ -376,6 +376,19 @@ class UsbfsDevice:
         if written != len(data):
             raise UsbfsError(f"short write: {written} of {len(data)} bytes")
 
+    def reset(self) -> None:
+        """Reset the device, which re-enumerates it on the bus.
+
+        The recovery path for a stick that has stopped answering. Note the device
+        gets a new address afterwards, so anything holding the old node path has
+        to look it up again.
+        """
+        try:
+            fcntl.ioctl(self._require_fd(), USBDEVFS_RESET)
+        except OSError as err:
+            raise UsbfsError(f"reset failed: {os.strerror(err.errno or 0)}") from err
+        _LOGGER.debug("reset %s", self._device.node)
+
     def _require_fd(self) -> int:
         if self._fd is None:
             raise UsbfsError("device is not open")

@@ -24,7 +24,6 @@ from .hardware import (
     SET_BAUDRATE,
     SET_LINE_CTL,
     SET_MHS,
-    UART_DISABLE,
     UART_ENABLE,
     describe_product,
 )
@@ -33,6 +32,9 @@ from .usbfs import UsbDevice, UsbfsDevice, UsbfsError, enumerate_devices
 _LOGGER = logging.getLogger(__name__)
 
 _READ_TIMEOUT_MS: Final = 200
+
+#: A reset re-enumerates the device; give the kernel time to bring it back.
+_RESET_SETTLE_SECONDS: Final = 2.0
 
 
 def find_local_devices() -> list[UsbDevice]:
@@ -72,21 +74,25 @@ def initialise_uart(device: UsbfsDevice) -> None:
             raise UsbfsError(
                 f"the {label} vendor request (0x{request:02X}) failed: {err}. "
                 "The device is reachable but will not accept vendor control "
-                "transfers. On a virtualised Home Assistant this is the USB "
-                "passthrough: run the bridge on the host the stick is attached "
-                "to and connect over the network instead."
+                "transfers."
             ) from err
         _LOGGER.debug("%s accepted", label)
     _LOGGER.debug("UART set to %d baud 8N1", BAUDRATE)
 
 
-def shutdown_uart(device: UsbfsDevice) -> None:
+def recover_device(info: UsbDevice) -> None:
+    """Reset a stick that has stopped answering.
+
+    Needed because earlier versions of this integration disabled the UART on
+    close, which leaves the device mute until it is reset -- so a stick may still
+    be in that state from before the fix.
+    """
+    handle = UsbfsDevice(info)
+    handle.open()
     try:
-        device.control(
-            REQTYPE_HOST_TO_DEVICE, IFC_ENABLE, UART_DISABLE, device.info.interface
-        )
-    except UsbfsError as err:
-        _LOGGER.debug("disabling the UART failed: %s", err)
+        handle.reset()
+    finally:
+        handle.close()
 
 
 class _UsbWriter:
@@ -164,8 +170,21 @@ class UsbConnection:
         await self._loop.run_in_executor(None, self._teardown)
 
     def _teardown(self) -> None:
-        shutdown_uart(self._device)
+        # Deliberately *not* sending IFC_ENABLE=UART_DISABLE here. Measured on the
+        # hardware: after that request the stick stops answering entirely and only
+        # a USB reset brings it back, so re-enabling on the next open is not
+        # enough. Home Assistant opens the device twice in normal use -- once for
+        # the config flow, once for the entry setup -- which turned a tidy-looking
+        # teardown into a device that worked once and then went silent.
         self._device.close()
+
+
+async def reset_local_device(device: UsbDevice) -> None:
+    """Reset a stick over usbfs, from the event loop."""
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, recover_device, device)
+    # Re-enumeration takes a moment, and the device gets a new address.
+    await asyncio.sleep(_RESET_SETTLE_SECONDS)
 
 
 async def open_local_device(device: UsbDevice) -> UsbConnection:

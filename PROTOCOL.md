@@ -241,45 +241,40 @@ kernel path unavailable, driving the CP210x from userspace
 The same held in a Debian LXC container. So the userspace driver is not a
 fallback in practice -- it is the path that runs.
 
-### Control transfers failed behind QEMU, and it is not clear why
+### A silent stick was my own teardown, not the passthrough
 
-Passing the stick into a virtual machine got far enough to be misleading: the
-guest enumerated it, the bridge found it, the bulk endpoints were read and the
-interface was claimed. Then every control transfer failed.
+Every control transfer failing in a guest looked like an emulation limit. It was
+not. Closing the device used to send ``IFC_ENABLE = UART_DISABLE``, which reads
+like tidy housekeeping and is what the in-tree ``cp210x`` driver does. Measured on
+this hardware, the stick then answers **nothing at all**, and re-enabling it on the
+next open does not help -- only a USB reset does.
 
-| Control transfer | Hypervisor host | Guest via QEMU |
-|---|---|---|
-| String descriptors | reads `00002858` | `ValueError: The device has no langid` |
-| `GET_CONFIGURATION` | fine | `[Errno 5] Input/Output Error` |
-| CP210x vendor requests | fine | `[Errno 5] Input/Output Error` |
+Home Assistant opens the device twice in normal use, once for the config flow and
+once for the entry setup. So the first open worked, the teardown quietly disabled
+the stick, and the second open met silence.
 
-**The obvious conclusion -- that QEMU cannot carry these transfers -- does not
-survive contact with a counterexample.** On the same host, the same hypervisor and
-the same guest, an eQ-3 HmIP-RFUSB works: it is also `bInterfaceClass 255`, also
-two endpoints, also full speed. Whatever went wrong is more specific than "USB
-passthrough".
-
-Nor is the physical path at fault. The stick sits two hubs deep, which looked like
-a suspect until the same stick, at the same port, behind the same hubs, on the same
-power, worked completely from a privileged LXC container on that host -- sysfs
-enumeration, all four vendor requests, 57600 8N1 and the full protocol. The hubs
-and the power budget are therefore sufficient.
+Measured in a Debian guest with the stick passed through by QEMU, at the same port:
 
 ```text
-3-2.4.1  via a privileged LXC container   works completely
-3-2.4.1  via QEMU usb-host into a guest   every control transfer fails
-3-2.2    HmIP-RFUSB via QEMU, same guest  works
+close without disabling, reopen  x3   all three answer
+close with IFC_ENABLE=DISABLE, reopen  silence
+USBDEVFS_RESET, then reopen           answers again
 ```
 
-So the one variable that changed between working and failing is the emulation
-layer, and it fails for this device while carrying another of the same class. That
-is as far as the evidence goes.
+Everything else this was blamed on works: control transfers, bulk transfers, QEMU
+passthrough, cascaded hubs, and read-timeout polling all behave. The whole
+investigation is worth recording because four plausible causes were named before
+the real one, each on evidence that looked sufficient at the time:
 
-**This is unresolved.** What is established is narrow: this stick did not work
-through QEMU passthrough into this guest, and it works both directly on the host
-and from a container on it. Running the bridge outside the VM is a dependable way
-around it. Trying a port that is not behind a second hub costs nothing and is worth
-a go, but the container result argues it will not be the difference.
+| Suspected | Ruled out by |
+|---|---|
+| QEMU cannot carry control transfers | a HmIP-RFUSB works on the same guest |
+| A cascaded second USB hub | the same stick works at the same port from a container |
+| Control transfers specifically | the log shows all four vendor requests accepted |
+| Read-timeout polling | every read strategy works in a Debian guest |
+
+The lesson that generalises: the failure was on the *second* open, and every early
+test opened the device once.
 
 ## One speaker only
 

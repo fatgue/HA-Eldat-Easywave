@@ -265,13 +265,15 @@ async def _async_probe_local(device) -> str | None:
     try:
         client, connection = await connect_local(device)
     except Exception as err:  # usbfs and protocol errors alike
-        _LOGGER.debug("cannot open %s: %s", device.node, err)
+        # Warning, not debug: the user is staring at "cannot_connect_usb" and this
+        # line is the only thing that says why.
+        _LOGGER.warning("cannot open %s: %s", device.node, err)
         return None
     try:
         identification = await client.identify()
         info = await client.info()
     except EldatError as err:
-        _LOGGER.debug("opened %s but got no identification: %s", device.node, err)
+        _LOGGER.warning("opened %s but got no identification: %s", device.node, err)
         return None
     finally:
         await client.close()

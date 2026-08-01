@@ -13,7 +13,7 @@ Two situations need more than that:
 | Situation | What to do |
 |---|---|
 | Stick plugged into the Home Assistant machine | Just the HACS integration |
-| Home Assistant in a virtual machine | Usually just the integration; if control transfers fail, run the [bridge outside the VM](deploy/README.md) |
+| Home Assistant in a virtual machine | Just the integration, with the stick passed through to the guest |
 | Stick attached to a different machine | Same: run the bridge there |
 
 ## How it drives the stick
@@ -30,14 +30,10 @@ container privileged, and grants it the USB device cgroup rules. So the
 integration drives the chip through Linux usbfs ioctls directly, using nothing but
 the standard library. No add-on, no dependencies.
 
-> **If Home Assistant runs in a virtual machine**, the stick has to be passed
-> through to the guest, and that can go wrong: on a Proxmox guest every control
-> transfer failed with `[Errno 5]` while the hypervisor host handled all of them.
-> Notably a HmIP-RFUSB — same interface class, same endpoint count, same speed —
-> worked on that very guest, and the same ELDAT stick at the same port worked from
-> a container on the host. So neither the emulation in general nor the hubs explain
-> it, and the cause is still open. If you hit this, run the
-> [bridge outside the VM](deploy/README.md).
+> **In a virtual machine**, pass the stick through to the guest and the
+> integration drives it there like anywhere else. Verified on Proxmox. If it opens
+> and then answers nothing, you are on a version older than 0.2.1 -- see
+> [PROTOCOL.md](PROTOCOL.md).
 
 See [PROTOCOL.md](PROTOCOL.md) for the measured protocol, including several places
 where the hardware disagrees with ELDAT's published specification.

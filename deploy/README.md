@@ -1,41 +1,13 @@
 # Running the bridge outside Home Assistant
 
-The add-on is the easiest route when Home Assistant runs on bare metal. It cannot
-work when Home Assistant runs in a **virtual machine**, and this is why.
+The integration drives a locally attached stick by itself, so this is only needed
+when the transceiver cannot be attached to the machine running Home Assistant --
+for instance when it has to sit elsewhere for radio range.
 
-## Why a VM might need this
-
-Passing the USB stick into a QEMU guest can look like it works -- the guest
-enumerates the device and the bridge finds it -- and then every control transfer
-fails. Measured on Proxmox with Home Assistant OS as the guest:
-
-| Control transfer | Hypervisor host | Guest via QEMU passthrough |
-|---|---|---|
-| String descriptors (serial number) | reads `00002858` | `ValueError: The device has no langid` |
-| `GET_CONFIGURATION` | fine | `[Errno 5] Input/Output Error` |
-| CP210x vendor requests | fine | `[Errno 5] Input/Output Error` |
-
-The host's kernel log showed a clean enumeration, no link errors and no repeated
-resets, so neither the stick nor the cabling is at fault. Bulk endpoints are found
-and the interface can even be claimed inside the guest -- it is specifically the
-control transfers that fail.
-
-**This is not a general property of USB passthrough**, and it is not the hubs
-either:
-
-```text
-3-2.4.1  via a privileged LXC container   works completely
-3-2.4.1  via QEMU usb-host into a guest   every control transfer fails
-3-2.2    HmIP-RFUSB via QEMU, same guest  works
-```
-
-The same stick, at the same port, behind the same hubs, on the same power, works
-from a container on the host. And another vendor-specific full-speed device works
-through the emulation into the same guest. The cause is narrower than either
-explanation, and remains open.
-
-What is dependable is running the bridge where USB does work and reaching it over
-TCP, which is what the integration's host and port settings are for.
+> **Not needed for virtual machines.** An earlier version of this project
+> recommended it for them, on the strength of a failure that turned out to be a bug
+> of its own: closing the device disabled its UART, which left it silent on the next
+> open. Passing the stick through to a guest works. See [PROTOCOL.md](../PROTOCOL.md).
 
 ## An LXC container on Proxmox
 

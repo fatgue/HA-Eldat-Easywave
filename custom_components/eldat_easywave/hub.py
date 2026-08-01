@@ -36,6 +36,7 @@ from .eldat.protocol import (
     EldatClient,
     EldatConnectionError,
     EldatError,
+    EldatTimeoutError,
     connect_local,
     connect_tcp,
 )
@@ -116,6 +117,25 @@ class EldatHub:
         )
 
     async def _connect(self) -> None:
+        try:
+            await self._connect_once()
+        except EldatTimeoutError:
+            if not self.is_local:
+                raise
+            # A local stick that accepts every setup request and then answers
+            # nothing has been left disabled by an older version of this
+            # integration. A reset is what brings it back.
+            _LOGGER.warning(
+                "the transceiver accepted configuration but did not answer; "
+                "resetting it and trying once more"
+            )
+            from .eldat.usb_transport import reset_local_device
+
+            device = await self._find_local_device()
+            await reset_local_device(device)
+            await self._connect_once()
+
+    async def _connect_once(self) -> None:
         client, connection = await self._open()
         try:
             self.identification = await client.identify()
@@ -156,22 +176,24 @@ class EldatHub:
     async def _open(self) -> tuple[EldatClient, Any | None]:
         """Connect however this entry is configured."""
         if self.is_local:
-            from .eldat.usb_transport import find_local_devices
-
-            serial = self.config.get(CONF_SERIAL)
-            devices = await self.hass.async_add_executor_job(find_local_devices)
-            match = next(
-                (device for device in devices if serial and device.serial == serial),
-                devices[0] if devices else None,
-            )
-            if match is None:
-                raise EldatConnectionError(
-                    "no ELDAT transceiver is attached to this machine"
-                )
-            return await connect_local(match)
+            return await connect_local(await self._find_local_device())
 
         client = await connect_tcp(self.config[CONF_HOST], self.config[CONF_PORT])
         return client, None
+
+    async def _find_local_device(self):
+        """The configured stick, matched by serial so re-addressing is harmless."""
+        from .eldat.usb_transport import find_local_devices
+
+        serial = self.config.get(CONF_SERIAL)
+        devices = await self.hass.async_add_executor_job(find_local_devices)
+        match = next(
+            (device for device in devices if serial and device.serial == serial),
+            devices[0] if devices else None,
+        )
+        if match is None:
+            raise EldatConnectionError("no ELDAT transceiver is attached to this machine")
+        return match
 
     async def _close_client(self) -> None:
         if self._remove_client_listener is not None:

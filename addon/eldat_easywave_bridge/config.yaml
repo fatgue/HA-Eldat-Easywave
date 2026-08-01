@@ -1,6 +1,6 @@
 ---
 name: ELDAT Easywave Bridge
-version: "0.2.0"
+version: "0.2.1"
 slug: eldat_easywave_bridge
 description: >-
   Makes an ELDAT Easywave USB transceiver usable by Home Assistant, including
