@@ -79,21 +79,46 @@ class Cp210xError(Exception):
     """Raised when the device cannot be opened or used."""
 
 
-def _backend():
-    """Resolve a libusb backend, honouring an explicit path if configured.
+#: Where libusb actually lives, when the loader cannot be asked. Alpine (musl)
+#: has no ldconfig cache, so ``ctypes.util.find_library`` regularly comes back
+#: empty even though the library is installed -- and Alpine is exactly what the
+#: add-on runs on.
+_LIBUSB_CANDIDATES: Final = (
+    "/usr/lib/libusb-1.0.so.0",  # Alpine, and most Linux distributions
+    "/usr/lib/x86_64-linux-gnu/libusb-1.0.so.0",  # Debian/Ubuntu amd64
+    "/usr/lib/aarch64-linux-gnu/libusb-1.0.so.0",  # Debian/Ubuntu arm64
+    "/usr/local/opt/libusb/lib/libusb-1.0.dylib",  # Homebrew on macOS
+    "/opt/homebrew/opt/libusb/lib/libusb-1.0.dylib",
+)
 
-    The container installs libusb where pyusb finds it; the override exists for
-    development hosts (Homebrew on macOS, for instance).
+
+def _backend():
+    """Resolve a libusb backend.
+
+    Tries, in order: an explicitly configured path, pyusb's own library search,
+    then a list of known locations.
     """
     if path := os.environ.get("ELDAT_LIBUSB_PATH"):
         backend = libusb1.get_backend(find_library=lambda _: path)
         if backend is None:
             raise Cp210xError(f"libusb not loadable from {path}")
         return backend
-    backend = libusb1.get_backend()
-    if backend is None:
-        raise Cp210xError("libusb not available")
-    return backend
+
+    if (backend := libusb1.get_backend()) is not None:
+        return backend
+
+    for candidate in _LIBUSB_CANDIDATES:
+        if not os.path.exists(candidate):
+            continue
+        if (
+            backend := libusb1.get_backend(find_library=lambda _, c=candidate: c)
+        ) is not None:
+            _LOGGER.debug("loaded libusb from %s", candidate)
+            return backend
+
+    raise Cp210xError(
+        "libusb not available -- install it, or point ELDAT_LIBUSB_PATH at it"
+    )
 
 
 def find_devices(

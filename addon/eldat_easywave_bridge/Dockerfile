@@ -15,6 +15,10 @@ RUN apk add --no-cache \
         pyusb==1.2.1 \
         pyserial==3.5
 
+# Alpine has no ldconfig cache, so name the library explicitly rather than
+# relying on ctypes.util.find_library finding it.
+ENV ELDAT_LIBUSB_PATH=/usr/lib/libusb-1.0.so.0
+
 WORKDIR /app
 COPY bridge/ /app/bridge/
 COPY run.sh /run.sh
