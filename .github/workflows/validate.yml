@@ -20,6 +20,10 @@ jobs:
   hacs:
     name: HACS
     runs-on: ubuntu-latest
+    # HACS fetches hacs.json anonymously from raw.githubusercontent.com, so this
+    # check can only pass on a public repository -- and HACS cannot install from
+    # a private one either. Skipped rather than left permanently red.
+    if: github.event.repository.private == false
     steps:
       - uses: actions/checkout@v4
       - uses: hacs/action@main
