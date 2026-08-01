@@ -227,6 +227,38 @@ stick's acknowledgement, but nothing has yet confirmed a receiver responds. The
 `hold`/`release` thresholds are reasoned from the measured 38 ms cadence rather
 than observed, so treat their timing as provisional.
 
+### The kernel path never gets a chance
+
+On Home Assistant OS the `cp210x` module is not loaded, so
+`/sys/bus/usb-serial/drivers/cp210x/` does not exist and there is nothing to write
+`new_id` into. Confirmed from an add-on log:
+
+```text
+cp210x driver not loaded (/sys/bus/usb-serial/drivers/cp210x missing)
+kernel path unavailable, driving the CP210x from userspace
+```
+
+The same held in a Debian LXC container. So the userspace driver is not a
+fallback in practice -- it is the path that runs.
+
+### QEMU USB passthrough does not work
+
+Passing the stick into a virtual machine gets far enough to be misleading: the
+guest enumerates it, the bridge finds it, the bulk endpoints are read and the
+interface can be claimed. Then every control transfer fails.
+
+| Control transfer | Hypervisor host | Guest via QEMU |
+|---|---|---|
+| String descriptors | reads `00002858` | `ValueError: The device has no langid` |
+| `GET_CONFIGURATION` | fine | `[Errno 5] Input/Output Error` |
+| CP210x vendor requests | fine | `[Errno 5] Input/Output Error` |
+
+The host's kernel log showed a clean enumeration with no link errors and no
+repeated resets, so the device and cabling are sound. Run the bridge outside the
+VM -- an LXC container bind-mounts the real device node and works. A readable
+serial number in the log is the quick signal that control transfers are getting
+through.
+
 ## One speaker only
 
 The stick tolerates a single connection, and the protocol is strictly

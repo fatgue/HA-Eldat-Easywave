@@ -9,7 +9,12 @@ Two pieces, because the hardware makes it necessary:
 | | What it is | How to install |
 |---|---|---|
 | **ELDAT Easywave** | Home Assistant integration: config flow, devices, entities | HACS |
-| **ELDAT Easywave Bridge** | Add-on that owns the USB stick and serves it over TCP | Add-on repository |
+| **ELDAT Easywave Bridge** | Owns the USB stick and serves it over TCP | Add-on repository, or [on a Linux host](deploy/README.md) |
+
+> **Home Assistant in a virtual machine?** The add-on cannot open the stick there.
+> QEMU USB passthrough does not carry the CP210x control transfers -- verified on
+> Proxmox, where the hypervisor host handles every transfer the guest fails. Run
+> the bridge outside the VM instead: see [deploy/README.md](deploy/README.md).
 
 ## Why an add-on is required
 

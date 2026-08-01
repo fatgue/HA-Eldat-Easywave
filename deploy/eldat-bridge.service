@@ -1,0 +1,28 @@
+# Runs the bridge on a Linux host that the ELDAT transceiver is physically
+# attached to, serving it over TCP for the Home Assistant integration.
+#
+# This is the deployment to use when Home Assistant runs in a virtual machine.
+# See deploy/README.md -- QEMU USB passthrough does not carry the CP210x control
+# transfers, so the add-on cannot open the stick inside the guest.
+#
+#   install -m644 eldat-bridge.service /etc/systemd/system/
+#   systemctl enable --now eldat-bridge
+
+[Unit]
+Description=ELDAT Easywave bridge
+Documentation=https://github.com/fatgue/HA-Eldat-Easywave-Addon
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/eldat/addon/eldat_easywave_bridge
+ExecStart=/usr/bin/python3 -m bridge
+Environment=PYTHONUNBUFFERED=1
+Environment=ELDAT_LOG_LEVEL=INFO
+# The stick tolerates a single speaker, so restarting is how a replug recovers.
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
