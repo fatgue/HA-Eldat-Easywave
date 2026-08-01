@@ -23,7 +23,6 @@
   },
   "config_subentries": {
     "cover": {
-      "title": "Roller shutter",
       "entry_type": "Roller shutter",
       "initiate_flow": {
         "user": "Add a roller shutter or blind"
@@ -47,7 +46,6 @@
       }
     },
     "switch": {
-      "title": "Switch",
       "entry_type": "Switch",
       "initiate_flow": {
         "user": "Add a switching actuator"
@@ -66,7 +64,6 @@
       }
     },
     "light": {
-      "title": "Light",
       "entry_type": "Light",
       "initiate_flow": {
         "user": "Add a light"
@@ -85,7 +82,6 @@
       }
     },
     "button": {
-      "title": "Button",
       "entry_type": "Button",
       "initiate_flow": {
         "user": "Add a button"
@@ -103,7 +99,6 @@
       }
     },
     "contact": {
-      "title": "Contact",
       "entry_type": "Contact",
       "initiate_flow": {
         "user": "Add a window or door contact"
@@ -129,7 +124,6 @@
       }
     },
     "transmitter": {
-      "title": "Transmitter",
       "entry_type": "Transmitter",
       "initiate_flow": {
         "user": "Add a hand-held or wall transmitter"

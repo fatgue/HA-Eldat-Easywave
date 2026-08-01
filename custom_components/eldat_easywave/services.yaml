@@ -20,7 +20,9 @@ send_telegram:
 
 set_led:
   fields:
-    on:
+    # Quoted deliberately: YAML 1.1 parses a bare `on` as the boolean true,
+    # which turns this key into True and makes the file invalid.
+    "on":
       required: true
       selector:
         boolean:

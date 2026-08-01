@@ -120,12 +120,10 @@ def _leaves(data, prefix: str = ""):
 
 
 def _yaml_keys(path: Path) -> dict:
-    """Top-level keys of a services.yaml without needing a YAML parser."""
-    keys: dict[str, None] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        if line and not line[0].isspace() and line.rstrip().endswith(":"):
-            keys[line.rstrip()[:-1]] = None
-    return keys
+    """Parse services.yaml the way Home Assistant does."""
+    import yaml
+
+    return yaml.safe_load(path.read_text(encoding="utf-8"))
 
 
 class TestPositionRange:
@@ -167,3 +165,40 @@ class TestPositionRange:
 
         with pytest.raises(vol.Invalid):
             _SEND_TELEGRAM_SCHEMA({"position": -1, "key": "A"})
+
+
+class TestServicesYaml:
+    """Guards a YAML trap that hassfest caught and a hand-read would not.
+
+    In YAML 1.1 a bare ``on`` is the boolean true, so ``on:`` as a field name
+    silently becomes the key ``True`` and Home Assistant rejects the file. The
+    key must stay quoted.
+    """
+
+    @pytest.fixture(scope="class")
+    def services(self) -> dict:
+        return _yaml_keys(COMPONENT / "services.yaml")
+
+    def test_led_field_is_the_string_on_not_a_boolean(self, services):
+        fields = services["set_led"]["fields"]
+        assert "on" in fields, f"expected a string key, got {list(fields)}"
+        assert True not in fields
+
+    def test_service_field_names_match_the_schemas(self, services):
+        from custom_components.eldat_easywave import (
+            _SEND_TELEGRAM_SCHEMA,
+            _SET_LED_SCHEMA,
+        )
+
+        for name, schema in (
+            ("send_telegram", _SEND_TELEGRAM_SCHEMA),
+            ("set_led", _SET_LED_SCHEMA),
+        ):
+            declared = {str(key) for key in schema.schema}
+            documented = set(services[name]["fields"])
+            assert declared == documented, f"{name}: {declared} != {documented}"
+
+    def test_position_selectors_start_at_zero(self, services):
+        """Positions are 0-based; the UI must not offer 1 as the minimum."""
+        selector = services["send_telegram"]["fields"]["position"]["selector"]
+        assert selector["number"]["min"] == 0

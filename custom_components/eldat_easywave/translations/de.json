@@ -23,7 +23,6 @@
   },
   "config_subentries": {
     "cover": {
-      "title": "Rollladen",
       "entry_type": "Rollladen",
       "initiate_flow": {
         "user": "Rollladen oder Jalousie hinzufügen"
@@ -47,7 +46,6 @@
       }
     },
     "switch": {
-      "title": "Schalter",
       "entry_type": "Schalter",
       "initiate_flow": {
         "user": "Schaltaktor hinzufügen"
@@ -66,7 +64,6 @@
       }
     },
     "light": {
-      "title": "Licht",
       "entry_type": "Licht",
       "initiate_flow": {
         "user": "Licht hinzufügen"
@@ -85,7 +82,6 @@
       }
     },
     "button": {
-      "title": "Taster",
       "entry_type": "Taster",
       "initiate_flow": {
         "user": "Taster hinzufügen"
@@ -103,7 +99,6 @@
       }
     },
     "contact": {
-      "title": "Kontakt",
       "entry_type": "Kontakt",
       "initiate_flow": {
         "user": "Fenster- oder Türkontakt hinzufügen"
@@ -129,7 +124,6 @@
       }
     },
     "transmitter": {
-      "title": "Sender",
       "entry_type": "Sender",
       "initiate_flow": {
         "user": "Hand- oder Wandsender hinzufügen"

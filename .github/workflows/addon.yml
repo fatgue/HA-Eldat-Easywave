@@ -18,7 +18,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arch: [aarch64, amd64, armv7]
+        arch: [aarch64, amd64]
     steps:
       - uses: actions/checkout@v4
       - name: Build
