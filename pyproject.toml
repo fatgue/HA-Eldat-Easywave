@@ -1,0 +1,19 @@
+[tool.ruff]
+target-version = "py313"
+line-length = 90
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "C4", "RET", "ASYNC"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests favour readability over import hygiene.
+"tests/*" = ["B017"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+
+[tool.ruff.lint.extend-per-file-ignores]
+# Polling is the right shape for a test harness driving a fake stream.
+"tests/conftest.py" = ["ASYNC109", "ASYNC110"]

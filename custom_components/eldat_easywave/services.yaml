@@ -1,0 +1,26 @@
+send_telegram:
+  # The main use is pairing: put the Easywave receiver into learning mode, then
+  # call this with the position you intend to use for it.
+  fields:
+    position:
+      required: true
+      example: 0
+      selector:
+        number:
+          # 0-based: a 64-position stick uses 0-63, a 128-position one 0-127.
+          min: 0
+          max: 127
+          mode: box
+    key:
+      required: true
+      example: "A"
+      selector:
+        select:
+          options: ["A", "B", "C", "D"]
+
+set_led:
+  fields:
+    on:
+      required: true
+      selector:
+        boolean:

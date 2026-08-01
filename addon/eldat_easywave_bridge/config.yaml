@@ -1,0 +1,43 @@
+---
+name: ELDAT Easywave Bridge
+version: "0.1.0"
+slug: eldat_easywave_bridge
+description: >-
+  Makes an ELDAT Easywave USB transceiver usable by Home Assistant, including
+  models the Linux cp210x driver does not recognise, and exposes it as a TCP
+  stream for the ELDAT Easywave integration.
+url: https://github.com/fatgue/HA-Eldat-Easywave-Addon
+arch:
+  - aarch64
+  - amd64
+  - armv7
+init: false
+startup: services
+# The stick tolerates exactly one speaker, so the bridge must come up before
+# the integration tries to connect.
+boot: auto
+
+# Raw USB access plus a writable /sys, needed to register the stick's USB id
+# with the running cp210x driver. Without full_access the kernel path is
+# unavailable and only the userspace CP210x driver can work.
+usb: true
+full_access: true
+
+ports:
+  5000/tcp: 5000
+ports_description:
+  5000/tcp: >-
+    Raw Easywave protocol stream. Point the ELDAT Easywave integration here.
+
+options:
+  port: 5000
+  prefer_kernel: true
+  product_ids: ""
+  log_level: info
+schema:
+  port: port
+  prefer_kernel: bool
+  # Comma-separated hex USB product ids to accept, e.g. "100E,1006".
+  # Empty means every id ELDAT's own Windows driver claims (1005-1013).
+  product_ids: str?
+  log_level: list(trace|debug|info|warning|error)?

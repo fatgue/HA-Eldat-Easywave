@@ -1,0 +1,205 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Connect to the Easywave bridge",
+        "description": "Enter the address of the ELDAT Easywave Bridge add-on. On Home Assistant OS the default address reaches the add-on through the Supervisor network once it is running.",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        },
+        "data_description": {
+          "host": "Where the bridge add-on is reachable.",
+          "port": "The port configured in the add-on."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "No Easywave transceiver answered. Check that the bridge add-on is running and that no other program is using the stick."
+    },
+    "abort": {
+      "already_configured": "This bridge is already set up."
+    }
+  },
+  "config_subentries": {
+    "cover": {
+      "title": "Roller shutter",
+      "entry_type": "Roller shutter",
+      "initiate_flow": {
+        "user": "Add a roller shutter or blind"
+      },
+      "step": {
+        "user": {
+          "title": "Add a roller shutter",
+          "description": "Pick a free transmit position, then teach it to the actuator: put the actuator into learning mode and press the shutter's up button in Home Assistant. Easywave gives no feedback, so the shutter's state is assumed rather than measured.",
+          "data": {
+            "name": "Name",
+            "position": "Transmit position",
+            "key_open": "Key for up",
+            "key_close": "Key for down",
+            "key_stop": "Key for stop"
+          },
+          "data_description": {
+            "position": "One of the serial numbers stored in the stick. Use a separate position for every actuator.",
+            "key_stop": "Many actuators stop on a third key; check the actuator's manual."
+          }
+        }
+      }
+    },
+    "switch": {
+      "title": "Switch",
+      "entry_type": "Switch",
+      "initiate_flow": {
+        "user": "Add a switching actuator"
+      },
+      "step": {
+        "user": {
+          "title": "Add a switch",
+          "description": "Pick a free transmit position and teach it to the actuator. For actuators in single-key toggle mode, set both keys to the same code.",
+          "data": {
+            "name": "Name",
+            "position": "Transmit position",
+            "key_on": "Key for on",
+            "key_off": "Key for off"
+          }
+        }
+      }
+    },
+    "light": {
+      "title": "Light",
+      "entry_type": "Light",
+      "initiate_flow": {
+        "user": "Add a light"
+      },
+      "step": {
+        "user": {
+          "title": "Add a light",
+          "description": "Pick a free transmit position and teach it to the actuator. Only on and off are supported: without feedback a brightness level could never be tracked.",
+          "data": {
+            "name": "Name",
+            "position": "Transmit position",
+            "key_on": "Key for on",
+            "key_off": "Key for off"
+          }
+        }
+      }
+    },
+    "button": {
+      "title": "Button",
+      "entry_type": "Button",
+      "initiate_flow": {
+        "user": "Add a button"
+      },
+      "step": {
+        "user": {
+          "title": "Add a button",
+          "description": "Sends a single Easywave telegram when pressed. Handy for scenes, and for teaching a receiver.",
+          "data": {
+            "name": "Name",
+            "position": "Transmit position",
+            "key": "Key"
+          }
+        }
+      }
+    },
+    "contact": {
+      "title": "Contact",
+      "entry_type": "Contact",
+      "initiate_flow": {
+        "user": "Add a window or door contact"
+      },
+      "step": {
+        "user": {
+          "title": "Add a contact",
+          "description": "Trigger the contact once so it appears in the list below, then select it. The ELDAT RTS16 in EIN/AUS mode sends key A when it opens and key B when it closes, which is what the defaults assume.",
+          "data": {
+            "name": "Name",
+            "address": "Transmitter",
+            "key_state_on": "Key meaning open",
+            "key_state_off": "Key meaning closed",
+            "device_class": "Type"
+          },
+          "data_description": {
+            "address": "Choose a transmitter that has been heard, or type its address."
+          }
+        }
+      },
+      "error": {
+        "invalid_address": "Select a transmitter or enter its address in hexadecimal."
+      }
+    },
+    "transmitter": {
+      "title": "Transmitter",
+      "entry_type": "Transmitter",
+      "initiate_flow": {
+        "user": "Add a hand-held or wall transmitter"
+      },
+      "step": {
+        "user": {
+          "title": "Add a transmitter",
+          "description": "Press a key on the transmitter so it appears below, then select it. One event entity is created per key, ready to use in automations.",
+          "data": {
+            "name": "Name",
+            "address": "Transmitter"
+          }
+        }
+      },
+      "error": {
+        "invalid_address": "Select a transmitter or enter its address in hexadecimal."
+      }
+    }
+  },
+  "entity": {
+    "event": {
+      "transmitter_key": {
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "press": "Pressed",
+              "hold": "Held",
+              "release": "Released"
+            }
+          }
+        }
+      }
+    }
+  },
+  "selector": {
+    "contact_device_class": {
+      "options": {
+        "window": "Window",
+        "door": "Door",
+        "garage_door": "Garage door",
+        "opening": "Opening",
+        "motion": "Motion",
+        "smoke": "Smoke"
+      }
+    }
+  },
+  "services": {
+    "send_telegram": {
+      "name": "Send telegram",
+      "description": "Sends a single Easywave telegram from one of the stick's transmit positions. Use this to teach a receiver: put it into learning mode, then call this service.",
+      "fields": {
+        "position": {
+          "name": "Position",
+          "description": "Transmit position on the stick."
+        },
+        "key": {
+          "name": "Key",
+          "description": "Easywave key code to send."
+        }
+      }
+    },
+    "set_led": {
+      "name": "Set LED",
+      "description": "Turns the red LED on the transceiver on or off. Useful for identifying which stick you are talking to.",
+      "fields": {
+        "on": {
+          "name": "On",
+          "description": "Whether the LED should light up."
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,3 @@
+# Pulls in the matching Home Assistant release, so the integration is tested
+# against the real thing rather than stubs.
+pytest-homeassistant-custom-component==0.13.*

@@ -1,0 +1,205 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Mit der Easywave-Bridge verbinden",
+        "description": "Adresse des Add-ons „ELDAT Easywave Bridge“ eintragen. Unter Home Assistant OS erreicht die Standardadresse das Add-on über das Supervisor-Netz, sobald es läuft.",
+        "data": {
+          "host": "Host",
+          "port": "Port"
+        },
+        "data_description": {
+          "host": "Wo das Bridge-Add-on erreichbar ist.",
+          "port": "Der im Add-on eingestellte Port."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kein Easywave-Transceiver hat geantwortet. Prüfe, ob das Bridge-Add-on läuft und ob kein anderes Programm den Stick belegt."
+    },
+    "abort": {
+      "already_configured": "Diese Bridge ist bereits eingerichtet."
+    }
+  },
+  "config_subentries": {
+    "cover": {
+      "title": "Rollladen",
+      "entry_type": "Rollladen",
+      "initiate_flow": {
+        "user": "Rollladen oder Jalousie hinzufügen"
+      },
+      "step": {
+        "user": {
+          "title": "Rollladen hinzufügen",
+          "description": "Freie Sendeposition wählen und in den Aktor einlernen: Aktor in den Einlern-Modus bringen, dann in Home Assistant auf „Auf“ drücken. Easywave meldet nichts zurück, der Zustand ist deshalb angenommen und nicht gemessen.",
+          "data": {
+            "name": "Name",
+            "position": "Sendeposition",
+            "key_open": "Taste für Auf",
+            "key_close": "Taste für Ab",
+            "key_stop": "Taste für Stop"
+          },
+          "data_description": {
+            "position": "Eine der im Stick gespeicherten Seriennummern. Für jeden Aktor eine eigene Position verwenden.",
+            "key_stop": "Viele Aktoren stoppen über eine dritte Taste — siehe Anleitung des Aktors."
+          }
+        }
+      }
+    },
+    "switch": {
+      "title": "Schalter",
+      "entry_type": "Schalter",
+      "initiate_flow": {
+        "user": "Schaltaktor hinzufügen"
+      },
+      "step": {
+        "user": {
+          "title": "Schalter hinzufügen",
+          "description": "Freie Sendeposition wählen und in den Aktor einlernen. Bei Aktoren im Ein-Tasten-Betrieb beide Tasten auf denselben Code setzen.",
+          "data": {
+            "name": "Name",
+            "position": "Sendeposition",
+            "key_on": "Taste für Ein",
+            "key_off": "Taste für Aus"
+          }
+        }
+      }
+    },
+    "light": {
+      "title": "Licht",
+      "entry_type": "Licht",
+      "initiate_flow": {
+        "user": "Licht hinzufügen"
+      },
+      "step": {
+        "user": {
+          "title": "Licht hinzufügen",
+          "description": "Freie Sendeposition wählen und in den Aktor einlernen. Nur Ein und Aus: ohne Rückmeldung ließe sich eine Helligkeit nie nachvollziehen.",
+          "data": {
+            "name": "Name",
+            "position": "Sendeposition",
+            "key_on": "Taste für Ein",
+            "key_off": "Taste für Aus"
+          }
+        }
+      }
+    },
+    "button": {
+      "title": "Taster",
+      "entry_type": "Taster",
+      "initiate_flow": {
+        "user": "Taster hinzufügen"
+      },
+      "step": {
+        "user": {
+          "title": "Taster hinzufügen",
+          "description": "Sendet beim Drücken ein einzelnes Easywave-Telegramm. Praktisch für Szenen und zum Einlernen eines Empfängers.",
+          "data": {
+            "name": "Name",
+            "position": "Sendeposition",
+            "key": "Taste"
+          }
+        }
+      }
+    },
+    "contact": {
+      "title": "Kontakt",
+      "entry_type": "Kontakt",
+      "initiate_flow": {
+        "user": "Fenster- oder Türkontakt hinzufügen"
+      },
+      "step": {
+        "user": {
+          "title": "Kontakt hinzufügen",
+          "description": "Kontakt einmal auslösen, damit er unten in der Liste erscheint, dann auswählen. Der ELDAT RTS16 im Modus EIN/AUS sendet beim Öffnen Taste A und beim Schließen Taste B — genau davon gehen die Vorgaben aus.",
+          "data": {
+            "name": "Name",
+            "address": "Sender",
+            "key_state_on": "Taste für geöffnet",
+            "key_state_off": "Taste für geschlossen",
+            "device_class": "Typ"
+          },
+          "data_description": {
+            "address": "Einen empfangenen Sender auswählen oder dessen Adresse eintragen."
+          }
+        }
+      },
+      "error": {
+        "invalid_address": "Sender auswählen oder dessen Adresse hexadezimal eintragen."
+      }
+    },
+    "transmitter": {
+      "title": "Sender",
+      "entry_type": "Sender",
+      "initiate_flow": {
+        "user": "Hand- oder Wandsender hinzufügen"
+      },
+      "step": {
+        "user": {
+          "title": "Sender hinzufügen",
+          "description": "Eine Taste am Sender drücken, damit er unten erscheint, dann auswählen. Je Taste entsteht eine Ereignis-Entität, direkt nutzbar in Automatisierungen.",
+          "data": {
+            "name": "Name",
+            "address": "Sender"
+          }
+        }
+      },
+      "error": {
+        "invalid_address": "Sender auswählen oder dessen Adresse hexadezimal eintragen."
+      }
+    }
+  },
+  "entity": {
+    "event": {
+      "transmitter_key": {
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "press": "Gedrückt",
+              "hold": "Gehalten",
+              "release": "Losgelassen"
+            }
+          }
+        }
+      }
+    }
+  },
+  "selector": {
+    "contact_device_class": {
+      "options": {
+        "window": "Fenster",
+        "door": "Tür",
+        "garage_door": "Garagentor",
+        "opening": "Öffnung",
+        "motion": "Bewegung",
+        "smoke": "Rauch"
+      }
+    }
+  },
+  "services": {
+    "send_telegram": {
+      "name": "Telegramm senden",
+      "description": "Sendet ein einzelnes Easywave-Telegramm von einer Sendeposition des Sticks. Damit lernt man einen Empfänger ein: Empfänger in den Einlern-Modus bringen, dann diesen Dienst aufrufen.",
+      "fields": {
+        "position": {
+          "name": "Position",
+          "description": "Sendeposition auf dem Stick."
+        },
+        "key": {
+          "name": "Taste",
+          "description": "Zu sendender Easywave-Tastencode."
+        }
+      }
+    },
+    "set_led": {
+      "name": "LED schalten",
+      "description": "Schaltet die rote LED am Transceiver ein oder aus. Nützlich, um zu erkennen, mit welchem Stick man spricht.",
+      "fields": {
+        "on": {
+          "name": "Ein",
+          "description": "Ob die LED leuchten soll."
+        }
+      }
+    }
+  }
+}

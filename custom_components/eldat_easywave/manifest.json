@@ -1,0 +1,12 @@
+{
+  "domain": "eldat_easywave",
+  "name": "ELDAT Easywave",
+  "codeowners": ["@fatgue"],
+  "config_flow": true,
+  "documentation": "https://github.com/fatgue/HA-Eldat-Easywave-Addon",
+  "integration_type": "hub",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/fatgue/HA-Eldat-Easywave-Addon/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
