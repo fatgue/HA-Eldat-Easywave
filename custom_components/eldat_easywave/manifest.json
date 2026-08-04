@@ -5,10 +5,10 @@
     "@fatgue"
   ],
   "config_flow": true,
-  "documentation": "https://github.com/fatgue/HA-Eldat-Easywave-Addon",
+  "documentation": "https://github.com/fatgue/HA-Eldat-Easywave",
   "integration_type": "hub",
   "iot_class": "local_push",
-  "issue_tracker": "https://github.com/fatgue/HA-Eldat-Easywave-Addon/issues",
+  "issue_tracker": "https://github.com/fatgue/HA-Eldat-Easywave/issues",
   "requirements": [],
   "version": "0.3.0"
 }

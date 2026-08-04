@@ -10,7 +10,7 @@
 
 [Unit]
 Description=ELDAT Easywave bridge
-Documentation=https://github.com/fatgue/HA-Eldat-Easywave-Addon
+Documentation=https://github.com/fatgue/HA-Eldat-Easywave
 After=network-online.target
 Wants=network-online.target
 

@@ -46,7 +46,7 @@ pct start 135
 pct exec 135 -- apt-get update
 pct exec 135 -- apt-get install -y python3 python3-usb libusb-1.0-0 git
 pct exec 135 -- git clone --depth 1 \
-  https://github.com/fatgue/HA-Eldat-Easywave-Addon.git /opt/eldat
+  https://github.com/fatgue/HA-Eldat-Easywave.git /opt/eldat
 pct exec 135 -- install -m644 \
   /opt/eldat/deploy/eldat-bridge.service /etc/systemd/system/
 pct exec 135 -- systemctl enable --now eldat-bridge
