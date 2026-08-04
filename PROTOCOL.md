@@ -191,6 +191,29 @@ bridge → TCP → library path: 23 contact changes produced 23 events, never 11
 
 ## Devices verified against this
 
+**ELDAT SH01 humidity sensor** (`SH01E5002-01`, archived). Per its
+[manual](https://www.eldat.de/archiv/easywave/_ba/sh01e_ba_de.pdf) it is a humidity
+sensor *and* a push-button, and the datasheet's `Codierung: 2x Easywave A/B` says
+what that means in practice: **two addresses, each with keys A and B**.
+
+| Function | Codes | Sent when |
+|---|---|---|
+| Button | `A1` on, `B1` off | key "I" and key "0" pressed |
+| Humidity | `A2` on | above 74 % rH, or a 4 % rise within 2 minutes while above 40 % |
+| Humidity | `B2` off | below 72 % rH, or back near the starting value -- and unconditionally after 4 hours |
+
+Below 40 % rH the sensor does not react at all. It measures every 2 minutes, over
+1-99 % rH at ±5 % accuracy, on a CR2032 or 12-24 V.
+
+Two things follow for an integration. There is **no measured value on the air** --
+Easywave carries a switching telegram and nothing else, so this is a binary sensor
+(`moisture`), not a humidity reading. And because the two functions are two
+addresses, the device is added twice: once for the button, once for the threshold.
+
+The same shape applies across ELDAT's sensor range -- ST01/ST02 temperature, SL01
+light, RTS40 and SM01 motion all report by switching telegram -- which is why the
+contact device type offers those classes rather than only openings.
+
 **ELDAT RTS16E5001B01 window contact.** Per its
 [manual](https://www.eldat.de/produkte/_ba/rts16e-B01-B02_ba_de.pdf), the EIN/AUS
 variant sends **Easywave code A when the contact opens and code B when it

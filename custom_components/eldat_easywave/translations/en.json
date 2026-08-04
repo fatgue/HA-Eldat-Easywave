@@ -107,14 +107,14 @@
       }
     },
     "contact": {
-      "entry_type": "Contact",
+      "entry_type": "Contact or sensor",
       "initiate_flow": {
-        "user": "Add a window or door contact"
+        "user": "Add a contact or sensor"
       },
       "step": {
         "user": {
-          "title": "Add a contact",
-          "description": "Trigger the contact once so it appears in the list below, then select it. The ELDAT RTS16 in EIN/AUS mode sends key A when it opens and key B when it closes, which is what the defaults assume.",
+          "title": "Add a contact or sensor",
+          "description": "Trigger the device once so it appears in the list below, then select it. Easywave sensors send a plain switching telegram rather than a measured value, so a humidity, temperature or motion sensor is a binary sensor here too -- pick the type that matches what it reports.\n\nCombination devices use one address per function. The SH01 humidity sensor, for instance, sends A/B on one address for its button and A/B on another for the humidity threshold, so add it twice.",
           "data": {
             "name": "Name",
             "address": "Transmitter",
@@ -174,7 +174,14 @@
         "garage_door": "Garage door",
         "opening": "Opening",
         "motion": "Motion",
-        "smoke": "Smoke"
+        "moisture": "Moisture",
+        "smoke": "Smoke",
+        "heat": "Heat",
+        "cold": "Cold",
+        "light": "Light",
+        "gas": "Gas",
+        "problem": "Problem",
+        "tamper": "Tamper"
       }
     }
   },

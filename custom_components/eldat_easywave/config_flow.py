@@ -74,7 +74,25 @@ _LOGGER = logging.getLogger(__name__)
 
 _MANUAL_ADDRESS = "__manual__"
 
-_CONTACT_DEVICE_CLASSES = ("window", "door", "garage_door", "opening", "motion", "smoke")
+#: Chosen to cover ELDAT's own sensor range: RTS16/RTS26 openings, RTS40 and SM01
+#: motion, SH01 humidity, ST01/ST02 temperature, SL01 light, plus smoke and the
+#: generic fallbacks. All of these send a plain switching telegram, so they are
+#: binary sensors regardless of what they measure.
+_CONTACT_DEVICE_CLASSES = (
+    "window",
+    "door",
+    "garage_door",
+    "opening",
+    "motion",
+    "moisture",
+    "smoke",
+    "heat",
+    "cold",
+    "light",
+    "gas",
+    "problem",
+    "tamper",
+)
 
 
 def _key_selector() -> selector.Selector:

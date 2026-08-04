@@ -88,9 +88,17 @@ could not be tracked honestly.
 2. Add a **contact** or **transmitter** device; the transmitter now appears in the
    dropdown, labelled with its address, last key and signal strength.
 
-**Contact** becomes a binary sensor. Defaults match the ELDAT RTS16 in EIN/AUS
-mode: key A means open, key B means closed. Its state survives restarts, because
-that variant sends no periodic status telegram.
+**Contact or sensor** becomes a binary sensor. Defaults match the ELDAT RTS16 in
+EIN/AUS mode: key A means open, key B means closed. Its state survives restarts,
+because that variant sends no periodic status telegram.
+
+Easywave sensors that measure something -- humidity, temperature, light, motion --
+belong here too. They transmit a switching telegram when a threshold is crossed and
+never a measured value, so there is nothing numeric to expose; pick the device class
+that matches what they report. Combination devices use one address per function, so
+they get added once per function: the SH01 humidity sensor sends A/B on one address
+for its button and A/B on another for the humidity threshold. See
+[PROTOCOL.md](PROTOCOL.md) for its exact codes.
 
 **Transmitter** becomes four `event` entities, one per key code, each reporting
 `press`, `hold` or `release` — ready to use as automation triggers.

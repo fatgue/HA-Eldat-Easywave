@@ -107,14 +107,14 @@
       }
     },
     "contact": {
-      "entry_type": "Kontakt",
+      "entry_type": "Kontakt oder Sensor",
       "initiate_flow": {
-        "user": "Fenster- oder Türkontakt hinzufügen"
+        "user": "Kontakt oder Sensor hinzufügen"
       },
       "step": {
         "user": {
-          "title": "Kontakt hinzufügen",
-          "description": "Kontakt einmal auslösen, damit er unten in der Liste erscheint, dann auswählen. Der ELDAT RTS16 im Modus EIN/AUS sendet beim Öffnen Taste A und beim Schließen Taste B — genau davon gehen die Vorgaben aus.",
+          "title": "Kontakt oder Sensor hinzufügen",
+          "description": "Gerät einmal auslösen, damit es unten in der Liste erscheint, dann auswählen. Easywave-Sensoren senden ein einfaches Schaltsignal und keinen Messwert — ein Feuchte-, Temperatur- oder Bewegungssensor ist hier also ebenfalls ein binärer Sensor. Wähle den Typ, der zum Gemessenen passt.\n\nKombigeräte nutzen je Funktion eine eigene Adresse. Der Feuchtesensor SH01 etwa sendet A/B auf einer Adresse für den Taster und A/B auf einer zweiten für die Feuchteschwelle — er wird also zweimal angelegt.",
           "data": {
             "name": "Name",
             "address": "Sender",
@@ -174,7 +174,14 @@
         "garage_door": "Garagentor",
         "opening": "Öffnung",
         "motion": "Bewegung",
-        "smoke": "Rauch"
+        "moisture": "Feuchtigkeit",
+        "smoke": "Rauch",
+        "heat": "Hitze",
+        "cold": "Kälte",
+        "light": "Licht",
+        "gas": "Gas",
+        "problem": "Störung",
+        "tamper": "Manipulation"
       }
     }
   },
