@@ -33,6 +33,9 @@ from custom_components.eldat_easywave.const import (
     SUBENTRY_SWITCH,
     SUBENTRY_TRANSMITTER,
 )
+from custom_components.eldat_easywave.diagnostics import (
+    async_get_config_entry_diagnostics,
+)
 from custom_components.eldat_easywave.eldat.parser import Identification, Info
 from custom_components.eldat_easywave.eldat.telegrams import Action, TelegramEvent
 
@@ -454,3 +457,28 @@ class TestTransmitterKeySelection:
         fake_client.emit("B")
         await hass.async_block_till_done()
         assert hass.states.get(entities[0]).state not in (None, "unknown")
+
+
+class TestDiagnostics:
+    """Diagnostics are how a user reports a bug, so they must never be the bug."""
+
+    async def test_reports_the_transceiver_and_its_devices(
+        self, hass: HomeAssistant, loaded_entry
+    ) -> None:
+        data = await async_get_config_entry_diagnostics(hass, loaded_entry)
+        assert data["connection"]["available"] is True
+        assert data["transceiver"]["usb_ids"] == "155A:100E"
+        assert data["transceiver"]["firmware"] == "1.00"
+        assert len(data["configured_devices"]) == len(SUBENTRIES)
+
+    async def test_survive_an_unloaded_entry(
+        self, hass: HomeAssistant, loaded_entry
+    ) -> None:
+        # Regression: this raised AttributeError, so the one request that explains
+        # a broken entry returned nothing precisely when it was needed most.
+        await hass.config_entries.async_unload(loaded_entry.entry_id)
+        await hass.async_block_till_done()
+
+        data = await async_get_config_entry_diagnostics(hass, loaded_entry)
+        assert data["connection"]["available"] is False
+        assert len(data["configured_devices"]) == len(SUBENTRIES)

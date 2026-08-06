@@ -19,7 +19,24 @@ from .const import CONF_CONNECTION, CONNECTION_TCP
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: EldatConfigEntry
 ) -> dict[str, Any]:
-    hub = entry.runtime_data
+    # runtime_data only exists while the entry is loaded. Diagnostics are most
+    # valuable exactly when something is wrong -- including mid-reload, or on an
+    # entry that failed to set up -- so report the configuration instead of
+    # raising AttributeError and returning nothing at all.
+    hub = getattr(entry, "runtime_data", None)
+    if hub is None:
+        return {
+            "connection": {
+                "type": entry.data.get(CONF_CONNECTION, CONNECTION_TCP),
+                "available": False,
+            },
+            "state": str(entry.state),
+            "configured_devices": [
+                {"type": sub.subentry_type, "data": dict(sub.data)}
+                for sub in entry.subentries.values()
+            ],
+        }
+
     identification = hub.identification
 
     return {
