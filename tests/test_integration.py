@@ -482,3 +482,37 @@ class TestDiagnostics:
         data = await async_get_config_entry_diagnostics(hass, loaded_entry)
         assert data["connection"]["available"] is False
         assert len(data["configured_devices"]) == len(SUBENTRIES)
+
+
+class TestHeardTransmitters:
+    """What the radio heard must outlive a reload, because adding a device
+    causes one -- otherwise the list is empty exactly when a second device is
+    about to be added from the same session."""
+
+    async def test_survive_a_reload(
+        self, hass: HomeAssistant, loaded_entry, fake_client: FakeClient
+    ) -> None:
+        hub = loaded_entry.runtime_data
+        fake_client.emit("A", address="6a563dcd")
+        await hass.async_block_till_done()
+        assert "6a563dcd" in hub.seen
+
+        with patch(
+            "custom_components.eldat_easywave.hub.connect_tcp",
+            AsyncMock(return_value=FakeClient()),
+        ):
+            await hass.config_entries.async_reload(loaded_entry.entry_id)
+            await hass.async_block_till_done()
+
+        assert "6a563dcd" in loaded_entry.runtime_data.seen
+
+    async def test_forgotten_when_the_entry_is_removed(
+        self, hass: HomeAssistant, loaded_entry, fake_client: FakeClient
+    ) -> None:
+        fake_client.emit("A", address="6a563dcd")
+        await hass.async_block_till_done()
+
+        await hass.config_entries.async_remove(loaded_entry.entry_id)
+        await hass.async_block_till_done()
+
+        assert hass.data[DOMAIN]["heard"] == {}

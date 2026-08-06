@@ -54,7 +54,11 @@ class EldatHub:
     """Holds the connection and distributes telegrams."""
 
     def __init__(
-        self, hass: HomeAssistant, entry_id: str, config: Mapping[str, Any]
+        self,
+        hass: HomeAssistant,
+        entry_id: str,
+        config: Mapping[str, Any],
+        seen: dict[str, TelegramEvent] | None = None,
     ) -> None:
         self.hass = hass
         self.entry_id = entry_id
@@ -65,10 +69,14 @@ class EldatHub:
         self.position_count: int | None = None
         self.mode: int | None = None
 
-        #: Transmitters heard since startup, newest first. Because the firmware
-        #: may lack ``RDP?`` there is no way to enumerate addresses, so the
-        #: config flow offers what has actually been heard on the air instead.
-        self.seen: dict[str, TelegramEvent] = {}
+        #: Transmitters heard so far, newest first. Because the firmware may lack
+        #: ``RDP?`` there is no way to enumerate addresses, so the config flow
+        #: offers what has actually been heard on the air instead.
+        #:
+        #: Passed in by the caller so it outlives a reload: adding a device
+        #: reloads the entry, which would otherwise empty this list at exactly
+        #: the moment someone goes to add a second device from the same session.
+        self.seen: dict[str, TelegramEvent] = {} if seen is None else seen
 
         self._client: EldatClient | None = None
         #: Only set on the local path: the USB layer that must outlive the client

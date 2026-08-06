@@ -15,7 +15,7 @@ import logging
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry
@@ -60,7 +60,7 @@ _SET_LED_SCHEMA = vol.Schema({vol.Required(ATTR_ON): cv.boolean})
 
 async def async_setup_entry(hass: HomeAssistant, entry: EldatConfigEntry) -> bool:
     """Connect to the bridge and set up the platforms."""
-    hub = EldatHub(hass, entry.entry_id, entry.data)
+    hub = EldatHub(hass, entry.entry_id, entry.data, seen=_async_heard(hass, entry))
     try:
         await hub.async_setup()
     except EldatError as err:
@@ -82,6 +82,25 @@ async def async_unload_entry(hass: HomeAssistant, entry: EldatConfigEntry) -> bo
     if unloaded:
         await entry.runtime_data.async_shutdown()
     return unloaded
+
+
+@callback
+def _async_heard(hass: HomeAssistant, entry: EldatConfigEntry) -> dict:
+    """The transmitters heard on this entry, kept across reloads.
+
+    Adding a device reloads the entry, so a hub-owned list would be discarded
+    the moment it is most useful -- when adding several devices in one sitting.
+    """
+    return (
+        hass.data.setdefault(DOMAIN, {})
+        .setdefault("heard", {})
+        .setdefault(entry.entry_id, {})
+    )
+
+
+async def async_remove_entry(hass: HomeAssistant, entry: EldatConfigEntry) -> None:
+    """Forget what this transceiver heard once it is gone for good."""
+    hass.data.get(DOMAIN, {}).get("heard", {}).pop(entry.entry_id, None)
 
 
 async def _async_reload_entry(hass: HomeAssistant, entry: EldatConfigEntry) -> None:
