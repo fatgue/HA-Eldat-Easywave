@@ -218,6 +218,8 @@ class EldatHub:
                 continue
 
             delay = _RECONNECT_DELAYS[min(attempt, len(_RECONNECT_DELAYS) - 1)]
+            if attempt == 0:
+                _LOGGER.warning("lost the connection to %s; reconnecting", self.unique_id)
             attempt += 1
             _LOGGER.debug("reconnecting to %s in %ss", self.unique_id, delay)
             await asyncio.sleep(delay)

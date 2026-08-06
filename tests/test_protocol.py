@@ -99,6 +99,37 @@ class TestErrorHandling:
             await harness.client.execute("ID?")
 
 
+class TestConnectionLoss:
+    """A connection that dies on its own must admit it.
+
+    Regression: when the stick was unplugged the reader thread noticed and
+    stopped, but ``is_closed`` kept answering False. The hub therefore believed
+    it was still connected, never reconnected, and reported itself healthy while
+    receiving nothing -- indistinguishable from a radio nobody is using.
+    """
+
+    async def test_peer_hangup_closes_the_client(self, harness):
+        assert harness.client.is_closed is False
+        harness.hang_up()
+        await _wait_until(lambda: harness.client.is_closed)
+        assert harness.client.is_closed is True
+
+    async def test_dead_connection_refuses_further_commands(self, harness):
+        harness.hang_up()
+        await _wait_until(lambda: harness.client.is_closed)
+        with pytest.raises(EldatConnectionError):
+            await harness.client.execute("ID?")
+
+
+async def _wait_until(predicate) -> None:
+    """Give the reader task a chance to observe the hangup."""
+    deadline = asyncio.get_running_loop().time() + 1.0
+    while not predicate():
+        if asyncio.get_running_loop().time() > deadline:
+            raise AssertionError("condition never became true")
+        await asyncio.sleep(0.01)
+
+
 class TestFraming:
     async def test_reply_split_across_reads(self, harness):
         task = asyncio.create_task(harness.client.identify())

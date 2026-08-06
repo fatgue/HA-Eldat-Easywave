@@ -15,7 +15,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import EldatConfigEntry
-from .const import ATTR_REPEATS, ATTR_RSSI, KEYS, SUBENTRY_TRANSMITTER
+from .const import ATTR_REPEATS, ATTR_RSSI, CONF_KEYS, KEYS, SUBENTRY_TRANSMITTER
 from .eldat.telegrams import Action, TelegramEvent
 from .entity import EldatReceiveEntity
 
@@ -29,8 +29,11 @@ async def async_setup_entry(
     for subentry in entry.subentries.values():
         if subentry.subentry_type != SUBENTRY_TRANSMITTER:
             continue
+        # Entries created before keys were selectable carry no list, and every
+        # key is the only safe assumption for them.
+        keys = subentry.data.get(CONF_KEYS) or list(KEYS)
         async_add_entities(
-            [EldatTransmitterKey(hub, subentry, key) for key in KEYS],
+            [EldatTransmitterKey(hub, subentry, key) for key in keys if key in KEYS],
             config_subentry_id=subentry.subentry_id,
         )
 

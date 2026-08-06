@@ -393,3 +393,64 @@ class TestConfigFlow:
             )
         assert result["type"] == "abort"
         assert result["reason"] == "already_configured"
+
+
+class TestTransmitterKeySelection:
+    """A three-button remote should not get a fourth entity that never fires.
+
+    Reported from real use: the integration created A-D unconditionally, so a
+    three-button key fob left one event entity sitting at "unknown" forever.
+    """
+
+    async def _setup(self, hass, fake_client, keys):
+        data = {CONF_ADDRESS: WINDOW_ADDRESS}
+        if keys is not None:
+            data["keys"] = keys
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            title="Easywave",
+            unique_id="usb:test",
+            data={CONF_CONNECTION: CONNECTION_TCP, CONF_HOST: "h", CONF_PORT: 5000},
+            subentries_data=[
+                ConfigSubentryData(
+                    subentry_type=SUBENTRY_TRANSMITTER,
+                    title="Key fob",
+                    unique_id=None,
+                    data=data,
+                )
+            ],
+        )
+        entry.add_to_hass(hass)
+        with patch(
+            "custom_components.eldat_easywave.hub.connect_tcp",
+            AsyncMock(return_value=fake_client),
+        ):
+            assert await hass.config_entries.async_setup(entry.entry_id)
+            await hass.async_block_till_done()
+        return [e for e in hass.states.async_entity_ids() if e.startswith("event.")]
+
+    async def test_three_keys_give_three_entities(self, hass, fake_client):
+        assert len(await self._setup(hass, fake_client, ["A", "B", "C"])) == 3
+
+    async def test_one_key_gives_one_entity(self, hass, fake_client):
+        """A nurse-call wristband has a single button."""
+        assert len(await self._setup(hass, fake_client, ["A"])) == 1
+
+    async def test_all_four_when_all_are_selected(self, hass, fake_client):
+        assert len(await self._setup(hass, fake_client, ["A", "B", "C", "D"])) == 4
+
+    async def test_older_entries_without_a_selection_keep_all_four(
+        self, hass, fake_client
+    ):
+        """Subentries created before this option existed must not lose entities."""
+        assert len(await self._setup(hass, fake_client, None)) == 4
+
+    async def test_unknown_keys_are_ignored(self, hass, fake_client):
+        entities = await self._setup(hass, fake_client, ["A", "Z"])
+        assert len(entities) == 1
+
+    async def test_the_selected_key_still_fires(self, hass, fake_client):
+        entities = await self._setup(hass, fake_client, ["B"])
+        fake_client.emit("B")
+        await hass.async_block_till_done()
+        assert hass.states.get(entities[0]).state not in (None, "unknown")

@@ -42,6 +42,7 @@ from .const import (
     CONF_KEY_STATE_OFF,
     CONF_KEY_STATE_ON,
     CONF_KEY_STOP,
+    CONF_KEYS,
     CONF_NAME,
     CONF_PORT,
     CONF_POSITION,
@@ -545,10 +546,27 @@ class TransmitterSubentryFlow(_EldatSubentryFlow):
             else:
                 return self.async_create_entry(
                     title=user_input[CONF_NAME],
-                    data={CONF_ADDRESS: address},
+                    data={
+                        CONF_ADDRESS: address,
+                        CONF_KEYS: user_input[CONF_KEYS],
+                    },
                     unique_id=f"transmitter_{address}",
                 )
 
         return self.async_show_form(
-            step_id="user", data_schema=self._receive_schema({}), errors=errors
+            step_id="user",
+            data_schema=self._receive_schema(
+                {
+                    # Creating all four regardless left unused entities sitting at
+                    # "unknown" forever on a three-button transmitter.
+                    vol.Required(CONF_KEYS, default=list(KEYS)): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=list(KEYS),
+                            multiple=True,
+                            mode=selector.SelectSelectorMode.LIST,
+                        )
+                    )
+                }
+            ),
+            errors=errors,
         )

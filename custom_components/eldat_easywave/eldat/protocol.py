@@ -176,12 +176,23 @@ class EldatClient:
         except asyncio.CancelledError:
             raise
         except Exception as err:
-            _LOGGER.debug("reader stopped: %s", err)
+            # Marking the client closed is the whole point: without it the reader
+            # can die -- the stick unplugged, the bridge restarted -- while
+            # is_closed still says False, so callers believe the connection is
+            # healthy and nothing ever reconnects. Silence then looks exactly like
+            # an idle radio.
+            self._closed = True
+            _LOGGER.warning("connection lost: %s", err)
             self._fail_pending(err)
 
     def _feed(self, text: str) -> None:
         """Frame incoming text and route each frame."""
         frames, self._buffer = iter_frames(self._buffer + text)
+        if frames:
+            # Logged because its absence is the only symptom when a transceiver
+            # stops reporting: commands still work, and silence looks identical
+            # to "nobody pressed anything".
+            _LOGGER.debug("received %d frame(s): %s", len(frames), frames)
         for raw in frames:
             frame = parse_frame(raw)
             if frame.is_unsolicited:
@@ -194,6 +205,12 @@ class EldatClient:
             return
         message = decode_payload(frame.payload)
         if isinstance(message, Received):
+            _LOGGER.debug(
+                "telegram from %s key %s (%s dBm)",
+                message.address,
+                message.key,
+                message.rssi,
+            )
             self._dispatch(self._collapser.feed(message))
         else:
             _LOGGER.debug("unsolicited non-telegram frame: %r", frame.payload)

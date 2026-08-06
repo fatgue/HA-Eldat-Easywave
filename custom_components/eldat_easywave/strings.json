@@ -142,7 +142,11 @@
           "description": "Press a key on the transmitter so it appears below, then select it. One event entity is created per key, ready to use in automations.",
           "data": {
             "name": "Name",
-            "address": "Transmitter"
+            "address": "Transmitter",
+            "keys": "Keys"
+          },
+          "data_description": {
+            "keys": "Which keys this transmitter has. A three-button remote should not leave a fourth entity sitting at unknown forever."
           }
         }
       },

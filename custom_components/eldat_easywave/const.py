@@ -52,6 +52,7 @@ CONF_KEY_STOP: Final = "key_stop"
 CONF_KEY_ON: Final = "key_on"
 CONF_KEY_OFF: Final = "key_off"
 CONF_KEY: Final = "key"
+CONF_KEYS: Final = "keys"
 CONF_KEY_STATE_ON: Final = "key_state_on"
 CONF_KEY_STATE_OFF: Final = "key_state_off"
 

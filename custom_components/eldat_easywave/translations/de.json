@@ -142,7 +142,11 @@
           "description": "Eine Taste am Sender drücken, damit er unten erscheint, dann auswählen. Je Taste entsteht eine Ereignis-Entität, direkt nutzbar in Automatisierungen.",
           "data": {
             "name": "Name",
-            "address": "Sender"
+            "address": "Sender",
+            "keys": "Tasten"
+          },
+          "data_description": {
+            "keys": "Welche Tasten dieser Sender hat. Bei einer Dreitasten-Fernbedienung soll keine vierte Entität dauerhaft auf „unbekannt“ stehen."
           }
         }
       },
