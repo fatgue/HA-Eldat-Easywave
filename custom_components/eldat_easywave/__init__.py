@@ -15,22 +15,30 @@ import logging
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.core import (
+    HomeAssistant,
+    ServiceCall,
+    ServiceResponse,
+    SupportsResponse,
+    callback,
+)
 from homeassistant.exceptions import ConfigEntryNotReady, HomeAssistantError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry
 
 from .const import (
+    ATTR_COMMAND,
     ATTR_KEY,
     ATTR_ON,
     ATTR_POSITION,
     DOMAIN,
     KEYS,
     MANUFACTURER,
+    SERVICE_SEND_COMMAND,
     SERVICE_SEND_TELEGRAM,
     SERVICE_SET_LED,
 )
-from .eldat.protocol import EldatError
+from .eldat.protocol import EldatCommandError, EldatError
 from .hub import EldatHub
 
 _LOGGER = logging.getLogger(__name__)
@@ -56,6 +64,12 @@ _SEND_TELEGRAM_SCHEMA = vol.Schema(
 )
 
 _SET_LED_SCHEMA = vol.Schema({vol.Required(ATTR_ON): cv.boolean})
+
+_SEND_COMMAND_SCHEMA = vol.Schema({vol.Required(ATTR_COMMAND): cv.string})
+
+#: Starting the bootloader leaves the stick answering nothing until it is
+#: physically reset, so it is the one command this service will not pass on.
+_REFUSED_COMMAND = "bootloader"
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: EldatConfigEntry) -> bool:
@@ -171,6 +185,44 @@ def _async_register_services(hass: HomeAssistant) -> None:
     hass.services.async_register(
         DOMAIN, SERVICE_SEND_TELEGRAM, handle_send_telegram, schema=_SEND_TELEGRAM_SCHEMA
     )
+
+    async def handle_send_command(call: ServiceCall) -> ServiceResponse:
+        command = str(call.data[ATTR_COMMAND]).strip()
+        if command.lower().startswith(_REFUSED_COMMAND):
+            raise HomeAssistantError(
+                "refusing to start the bootloader: the transceiver would stop "
+                "answering until it is physically unplugged"
+            )
+        hubs = _hubs(call.hass)
+        if not hubs:
+            raise HomeAssistantError("no Easywave transceiver is connected")
+        try:
+            response = await hubs[0].async_send_command(command)
+        except EldatCommandError:
+            # A bare ERROR is a legitimate answer when probing what an
+            # undocumented firmware supports, not a failure of the call.
+            return {"acknowledged": False, "response": "ERROR"}
+        except EldatError as err:
+            raise HomeAssistantError(f"cannot send '{command}': {err}") from err
+
+        message = response.message
+        return {
+            "acknowledged": response.ack,
+            "response": (
+                None
+                if message is None
+                # Unknown payloads keep their raw text, which is the point here.
+                else getattr(message, "payload", None) or str(message)
+            ),
+        }
+
     hass.services.async_register(
         DOMAIN, SERVICE_SET_LED, handle_set_led, schema=_SET_LED_SCHEMA
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_SEND_COMMAND,
+        handle_send_command,
+        schema=_SEND_COMMAND_SCHEMA,
+        supports_response=SupportsResponse.ONLY,
     )

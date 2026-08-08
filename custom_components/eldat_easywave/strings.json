@@ -213,6 +213,16 @@
           "description": "Whether the LED should light up."
         }
       }
+    },
+    "send_command": {
+      "name": "Send command",
+      "description": "Sends one raw command to the transceiver and returns its reply. For diagnosis: this firmware is an undocumented OEM build, and unsupported commands simply answer ERROR.",
+      "fields": {
+        "command": {
+          "name": "Command",
+          "description": "The command to send, for example ID? or MODE?."
+        }
+      }
     }
   }
 }

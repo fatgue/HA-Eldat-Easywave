@@ -213,6 +213,16 @@
           "description": "Ob die LED leuchten soll."
         }
       }
+    },
+    "send_command": {
+      "name": "Kommando senden",
+      "description": "Sendet ein einzelnes Rohkommando an den Transceiver und gibt die Antwort zurück. Zur Fehlersuche: die Firmware ist eine undokumentierte OEM-Variante, unbekannte Kommandos werden schlicht mit ERROR beantwortet.",
+      "fields": {
+        "command": {
+          "name": "Kommando",
+          "description": "Das zu sendende Kommando, zum Beispiel ID? oder MODE?."
+        }
+      }
     }
   }
 }

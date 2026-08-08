@@ -82,6 +82,7 @@ EVENT_TELEGRAM: Final = f"{DOMAIN}_telegram"
 
 SERVICE_SEND_TELEGRAM: Final = "send_telegram"
 SERVICE_SET_LED: Final = "set_led"
+SERVICE_SEND_COMMAND: Final = "send_command"
 
 ATTR_POSITION: Final = "position"
 ATTR_KEY: Final = "key"
@@ -90,3 +91,4 @@ ATTR_ACTION: Final = "action"
 ATTR_RSSI: Final = "rssi"
 ATTR_REPEATS: Final = "repeats"
 ATTR_ON: Final = "on"
+ATTR_COMMAND: Final = "command"

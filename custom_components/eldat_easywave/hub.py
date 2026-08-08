@@ -31,7 +31,7 @@ from .const import (
     DOMAIN,
     EVENT_TELEGRAM,
 )
-from .eldat.parser import Identification, Info
+from .eldat.parser import Identification, Info, split_fields
 from .eldat.protocol import (
     EldatClient,
     EldatConnectionError,
@@ -300,6 +300,18 @@ class EldatHub:
         if client is None or client.is_closed:
             raise EldatConnectionError(f"not connected to {self.unique_id}")
         await client.transmit(position, key)
+
+    async def async_send_command(self, command: str):
+        """Send one raw command and return its reply.
+
+        Exists for diagnosis: this firmware is an undocumented OEM build, and
+        unsupported commands answer a bare ERROR, so probing what it accepts is
+        both safe and the only way to establish what it can do.
+        """
+        client = self._client
+        if client is None or client.is_closed:
+            raise EldatConnectionError(f"not connected to {self.unique_id}")
+        return await client.execute(*split_fields(command))
 
     async def async_set_led(self, on: bool) -> None:
         client = self._client

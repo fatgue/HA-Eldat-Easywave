@@ -13,6 +13,7 @@ import voluptuous as vol
 from homeassistant.config_entries import ConfigEntryState, ConfigSubentryData
 from homeassistant.const import STATE_CLOSED, STATE_OFF, STATE_ON, STATE_OPEN, Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.eldat_easywave.const import (
@@ -26,6 +27,7 @@ from custom_components.eldat_easywave.const import (
     CONF_POSITION,
     CONNECTION_TCP,
     DOMAIN,
+    SERVICE_SEND_COMMAND,
     SERVICE_SEND_TELEGRAM,
     SUBENTRY_BUTTON,
     SUBENTRY_CONTACT,
@@ -36,7 +38,15 @@ from custom_components.eldat_easywave.const import (
 from custom_components.eldat_easywave.diagnostics import (
     async_get_config_entry_diagnostics,
 )
-from custom_components.eldat_easywave.eldat.parser import Identification, Info
+from custom_components.eldat_easywave.eldat.parser import (
+    Identification,
+    Info,
+    Unknown,
+)
+from custom_components.eldat_easywave.eldat.protocol import (
+    EldatCommandError,
+    Response,
+)
 from custom_components.eldat_easywave.eldat.telegrams import Action, TelegramEvent
 
 WINDOW_ADDRESS = "1a2b3c4d"
@@ -48,6 +58,8 @@ class FakeClient:
     def __init__(self) -> None:
         self.is_closed = False
         self.transmitted: list[tuple[int, str]] = []
+        self.commands: list[tuple[str, ...]] = []
+        self.refuse = False
         self.led: bool | None = None
         self._listeners: list = []
 
@@ -69,6 +81,12 @@ class FakeClient:
 
     async def transmit(self, position: int, key: str) -> None:
         self.transmitted.append((position, key))
+
+    async def execute(self, *fields: str) -> Response:
+        self.commands.append(fields)
+        if self.refuse:
+            raise EldatCommandError("ERROR")
+        return Response(ack=True, message=Unknown("MODE,00"))
 
     async def set_led(self, on: bool) -> None:
         self.led = on
@@ -516,3 +534,48 @@ class TestHeardTransmitters:
         await hass.async_block_till_done()
 
         assert hass.data[DOMAIN]["heard"] == {}
+
+
+class TestSendCommandService:
+    """Raw command access, the tool that makes an undocumented firmware knowable."""
+
+    async def test_returns_the_reply(
+        self, hass: HomeAssistant, loaded_entry, fake_client: FakeClient
+    ) -> None:
+        result = await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SEND_COMMAND,
+            {"command": "MODE?"},
+            blocking=True,
+            return_response=True,
+        )
+        assert result == {"acknowledged": True, "response": "MODE,00"}
+        assert fake_client.commands == [("MODE?",)]
+
+    async def test_error_is_an_answer_not_a_failure(
+        self, hass: HomeAssistant, loaded_entry, fake_client: FakeClient
+    ) -> None:
+        # Probing an undocumented firmware means most commands answer ERROR;
+        # that is the result being asked for, so it must not raise.
+        fake_client.refuse = True
+        result = await hass.services.async_call(
+            DOMAIN,
+            SERVICE_SEND_COMMAND,
+            {"command": "KEELOQ?"},
+            blocking=True,
+            return_response=True,
+        )
+        assert result == {"acknowledged": False, "response": "ERROR"}
+
+    async def test_refuses_to_start_the_bootloader(
+        self, hass: HomeAssistant, loaded_entry, fake_client: FakeClient
+    ) -> None:
+        with pytest.raises(HomeAssistantError, match="bootloader"):
+            await hass.services.async_call(
+                DOMAIN,
+                SERVICE_SEND_COMMAND,
+                {"command": "Bootloader"},
+                blocking=True,
+                return_response=True,
+            )
+        assert fake_client.commands == []

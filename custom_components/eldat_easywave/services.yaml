@@ -26,3 +26,11 @@ set_led:
       required: true
       selector:
         boolean:
+
+send_command:
+  fields:
+    command:
+      required: true
+      example: "MODE?"
+      selector:
+        text:
