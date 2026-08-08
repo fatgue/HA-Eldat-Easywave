@@ -97,15 +97,25 @@ string; that is simply a multi-field reply.
 | `ID?` | `ID,155A,100E,0100\tOK` | vendor, product, firmware version |
 | `GETP?` | `GETP,40,00,00\tOK` | **64** transmit positions. Two extra undocumented fields |
 | `INFO?` | `INFO,RX09 EW+KEELOQ,www.fuhr.de\tOK` | **undocumented**, identifies the OEM build |
-| `MODE?` | `MODE,00\tOK` | **undocumented**. Only `MODE,00` is accepted; `01`/`02` give `ERROR` |
+| `MODE?` / `MODE,<n>` | `MODE,00\tOK` | **undocumented**. All 256 values were tried: only `00` and `04` are accepted. Easywave reception is unchanged in mode 4, so what it selects is **still unknown** |
 | `TXP,<pos>,<key>` | `OK` | transmit from a position; `<key>` is `A`–`D` |
 | `LED?` / `LED,ON\|OFF` | `LED is OFF\tOK` | note the casing differs from the spec's "Led is ON" |
 | `ECHO?` / `ECHO,ON\|OFF` | `ECHO is OFF\tOK` | default off |
 | `BUTTON?` | `BUTTON is released\tOK` | the pushbutton on the stick |
+| `RX?` / `RX,ON\|OFF` | `RX is ON\tOK` | **undocumented**, enables the receiver. Takes no other value: `KEELOQ`, `KL`, `EW`, `ALL`, `BOTH`, `1`, `2`, `00`, `01` are all refused |
 | `RDP?,<pos>` | **`ERROR`** | **not implemented on this firmware** — see below |
 | `Bootloader` | starts the bootloader | do not send; needs a reset to recover |
 
-Unsupported commands return a bare `ERROR`, so probing is safe and cheap.
+Unsupported commands return a bare `ERROR`, so probing is safe and cheap. About
+sixty further candidates were tried against this firmware -- among them
+`KEELOQ?`, `PROT?`, `LEARN?`, `CONFIG?`, `STATUS?`, `HELP?`, `FREQ?`, `ENC?` and
+`RSSI?` -- and every one of them answered `ERROR`. The table above is therefore
+close to the complete command set, not a selection from it.
+
+Two entries here correct an earlier version of this document, which claimed that
+`MODE,00` was the only accepted mode. That claim rested on a sample of two
+values. Sweeping the range found `MODE,04`, and a systematic sweep also turned up
+`RX?`, which no amount of reading the specification would have revealed.
 
 ### Positions are 0-based
 
@@ -225,6 +235,32 @@ closes** (the B02 variant is inverted). Captures match exactly. Worth knowing:
 * A low battery adds a separate `BATTERIE-LOW` telegram. The manual does not say
   which key code carries it, and it could not be provoked on a healthy battery, so
   it remains unverified.
+
+### A transmitter this stick cannot hear
+
+Not every ELDAT transmitter on 868.30 MHz is an Easywave transmitter. An ELDAT
+`RTS21-5003K-02` key fob was measured against this stick and produced **not one
+byte** -- no telegram, and no unparsable frame either. What rules out the ordinary
+explanations:
+
+* It transmits: its LED lights on every press, which per the RT21 manual is the
+  send indicator, and a blinking LED (its low-battery warning) was not seen.
+* It is on the right frequency: 868,30 MHz is printed on the housing.
+* The receiver works: a window contact, a humidity sensor and a neck-strap
+  transmitter were all heard reliably during the same session, from unlearned
+  addresses, so the stick reports Easywave from anything within range.
+* There is no mode that changes it: all 256 `MODE` values were tried and only `00`
+  and `04` exist; Easywave reception is identical in both, and the fob is heard in
+  neither. No `KEELOQ`, `PROT`, `LEARN` or similar command exists to switch.
+
+The firmware calls itself `RX09 EW+KEELOQ`, so the hardware can demodulate KeeLoq,
+but nothing in the serial protocol exposes it. KeeLoq is a rolling-code scheme: a
+receiver that has not been paired with a transmitter cannot validate its telegram
+and drops it silently -- which is exactly the observed silence.
+
+**This is a negative result worth recording: such a transmitter cannot be
+integrated through this stick, and no amount of software changes that.** It
+belongs to the door lock it was supplied with, not to the Easywave system.
 
 ## Verification status
 
