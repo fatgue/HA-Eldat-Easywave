@@ -276,13 +276,45 @@ What has actually been exercised against hardware, and what has not:
 | Position range `0`–`63`, `64` refused | verified exhaustively |
 | Receive: framing, RSSI, address, 5:1 burst collapse | verified live and by capture replay |
 | Contact semantics A = open, B = closed | per manufacturer manual, consistent with captures |
-| **An actual receiver acting on `TXP`** | **not verified** — needs an actuator in learning mode |
+| **An actual receiver acting on `TXP`** | **still not verified** — one attempt failed against a rolling-code receiver, see below |
 | **`hold` / `release` detection** | **not verified** — a contact cannot be held down |
 | **Battery-low telegram** | **not verified** — needs a depleted battery |
 | **Kernel `new_id` bind path** | **not verified** — needs a Linux host |
 
 The unverified transmit case is a real gap: the command path is proven up to the
-stick's acknowledgement, but nothing has yet confirmed a receiver responds. The
+stick's acknowledgement, but nothing has yet confirmed a receiver responds.
+
+### The receiver that would not learn — and what it does *not* prove
+
+A **FUHR NZ80088 socket receiver** was put into learning mode and offered
+telegrams from the stick. Per its
+[manual](https://www.fuhr.de/fileadmin/documents/Anleitungen/Zubehoer/DE/anleitung-steckdosen-funkempfaenger-VNZ80088-MB40-de.pdf)
+a stored code makes its LED light for about four seconds. It never did:
+
+* Position 0, key A, ~60 telegrams/s for 6 s — no reaction.
+* Position 0, key A, paced at ~10/s for 5 s, matching a held transmitter's
+  repetition — no reaction.
+* **All 64 positions**, key A, a short held press each — no reaction. The LED kept
+  blinking throughout, so learning mode never ended and never accepted anything.
+
+Its variant line reads `NZ80088 — 868,30 MHz (Rolling Code)`, which fits: it is
+FUHR door-hardware kit, like the RTS21 fob above, and expects rolling code rather
+than Easywave.
+
+**Two explanations fit this result equally well, and this test cannot separate
+them.** Either the receiver rejects Easywave, or `TXP` does not radiate at all --
+the stick acknowledges the command, but nothing observed so far proves a telegram
+leaves the antenna. The stick does not report its own transmissions, so there is
+no self-check available either. Settling it needs a **known Easywave receiver**;
+until then, transmit is unproven, and this device is the wrong instrument to prove
+it with.
+
+Worth noting for anyone modelling this hardware: the NZ80088's mains outlet is
+explicitly `nicht schaltbar` -- it only passes power through. What it switches is a
+dry relay contact giving a **1-second impulse**, for a garage door drive. That is a
+`button`, not a `switch`.
+
+The
 `hold`/`release` thresholds are reasoned from the measured 38 ms cadence rather
 than observed, so treat their timing as provisional.
 
