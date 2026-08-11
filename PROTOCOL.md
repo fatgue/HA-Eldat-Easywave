@@ -285,9 +285,14 @@ the model group -- `RT21E5001-01`, `RT21E5002-01`, `RTS03E5004-04-27P`,
 FUHR's own manuals describe their system as a **proprietary rolling code on
 868,30 MHz with FSK** -- the same frequency and the same modulation as Easywave --
 and state that only original FUHR transmitters can be paired. So two mutually deaf
-systems share the band, and **the `E` in the part number is what tells them
-apart.** Frequency and modulation cannot: they are identical. This is worth
-checking before buying hardware, and it is not something the protocol can detect.
+systems share the band, and nothing observable on the air separates them.
+
+**The `E` is a reliable rule of thumb, not a documented one.** No ELDAT type-code
+legend could be found stating what the letter means; the rule rests on a perfect
+correlation across nine part numbers. Do not over-read the other letters either:
+the trailing group is a colour code -- `-23K` anthracite, `-00K` white, `-27P` --
+so a `K` in a part number does not imply KeeLoq. When buying, the dependable check
+is the printed **Easywave logo**, which the genuine transmitters carry.
 
 ## Verification status
 
