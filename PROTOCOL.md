@@ -262,6 +262,33 @@ and drops it silently -- which is exactly the observed silence.
 integrated through this stick, and no amount of software changes that.** It
 belongs to the door lock it was supplied with, not to the Easywave system.
 
+#### The part number says which system a device speaks
+
+A second transmitter, an `RT21-5003K-02`, behaved identically: it drives a FUHR
+receiver reliably, and the stick never hears a byte of it -- measured against a
+window contact heard at −73 dBm seconds earlier, so the receiver was demonstrably
+working at the time.
+
+Lining the devices up by part number shows what separates them:
+
+| Part number | Device | Heard by the stick |
+|---|---|---|
+| `RTS16E5001B01` | window contact | yes |
+| `SH01E5002-01` | humidity sensor | yes |
+| `RTS21-5003K-02` | key fob | **never** |
+| `RT21-5003K-02` | hand transmitter | **never** |
+
+Every Easywave part number in ELDAT's own documentation carries an **`E`** after
+the model group -- `RT21E5001-01`, `RT21E5002-01`, `RTS03E5004-04-27P`,
+`RS16E5001-01`, `SH01E5002-01`. Both silent transmitters lack it.
+
+FUHR's own manuals describe their system as a **proprietary rolling code on
+868,30 MHz with FSK** -- the same frequency and the same modulation as Easywave --
+and state that only original FUHR transmitters can be paired. So two mutually deaf
+systems share the band, and **the `E` in the part number is what tells them
+apart.** Frequency and modulation cannot: they are identical. This is worth
+checking before buying hardware, and it is not something the protocol can detect.
+
 ## Verification status
 
 What has actually been exercised against hardware, and what has not:
@@ -297,17 +324,19 @@ a stored code makes its LED light for about four seconds. It never did:
 * **All 64 positions**, key A, a short held press each — no reaction. The LED kept
   blinking throughout, so learning mode never ended and never accepted anything.
 
-Its variant line reads `NZ80088 — 868,30 MHz (Rolling Code)`, which fits: it is
-FUHR door-hardware kit, like the RTS21 fob above, and expects rolling code rather
-than Easywave.
+Its variant line reads `NZ80088 — 868,30 MHz (Rolling Code)`, and it was afterwards
+paired successfully with an `RT21-5003K-02` -- a transmitter with no `E` in its
+part number, which this stick cannot hear either. So the receiver works, and works
+on rolling code.
 
-**Two explanations fit this result equally well, and this test cannot separate
-them.** Either the receiver rejects Easywave, or `TXP` does not radiate at all --
-the stick acknowledges the command, but nothing observed so far proves a telegram
-leaves the antenna. The stick does not report its own transmissions, so there is
-no self-check available either. Settling it needs a **known Easywave receiver**;
-until then, transmit is unproven, and this device is the wrong instrument to prove
-it with.
+**That makes this attempt no test of transmit at all.** A receiver expecting
+rolling code would refuse Easywave telegrams however well the stick sent them, so
+the failure says nothing either way. `TXP` remains unproven: the stick
+acknowledges the command, it does not report its own transmissions, and no
+self-check exists. Settling it needs a **receiver with an `E` in its part
+number** -- an ELDAT RCP-series socket, for instance. Until one is available,
+transmit stays a gap, and picking the wrong receiver to test it with wastes the
+attempt.
 
 Worth noting for anyone modelling this hardware: the NZ80088's mains outlet is
 explicitly `nicht schaltbar` -- it only passes power through. What it switches is a
